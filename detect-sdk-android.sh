@@ -1,0 +1,907 @@
+#!/bin/bash
+
+################################################################################
+# Android App SDK Detection Script
+#
+# Description: Automates the process of downloading and analyzing Android apps
+#              to detect the presence of specific SDKs or libraries.
+#
+# Usage: ./detect-sdk-android.sh [OPTIONS]
+#
+# Author: Created for SDK license compliance verification
+# Version: 1.0
+################################################################################
+
+set -e  # Exit on error
+
+# Color codes for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+MAGENTA='\033[0;35m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# Configuration
+ORIGINAL_DIR="${PWD}"
+WORK_DIR="${PWD}/sdk-analysis-android-$(date +%Y%m%d-%H%M%S)"
+SDK_NAMES=()
+PLAY_STORE_URL=""
+PACKAGE_NAME=""
+APK_FILE=""
+OUTPUT_REPORT="sdk-detection-report.txt"
+CLEANUP=true
+VERBOSE=false
+
+################################################################################
+# Helper Functions
+################################################################################
+
+print_header() {
+    echo -e "\n${BOLD}${CYAN}========================================${NC}"
+    echo -e "${BOLD}${CYAN}$1${NC}"
+    echo -e "${BOLD}${CYAN}========================================${NC}\n"
+}
+
+print_success() {
+    echo -e "${GREEN}✅ $1${NC}"
+}
+
+print_error() {
+    echo -e "${RED}❌ ERROR: $1${NC}"
+}
+
+print_warning() {
+    echo -e "${YELLOW}⚠️  WARNING: $1${NC}"
+}
+
+print_info() {
+    echo -e "${BLUE}ℹ️  $1${NC}"
+}
+
+print_found() {
+    echo -e "${MAGENTA}🔍 FOUND: $1${NC}"
+}
+
+log_verbose() {
+    if [ "$VERBOSE" = true ]; then
+        echo -e "${CYAN}[DEBUG] $1${NC}"
+    fi
+}
+
+################################################################################
+# Usage and Help
+################################################################################
+
+show_usage() {
+    cat << EOF
+${BOLD}Android App SDK Detection Script${NC}
+
+${BOLD}USAGE:${NC}
+    $0 [OPTIONS]
+
+${BOLD}OPTIONS:${NC}
+    -s, --sdk <name>          SDK name to search for (can be used multiple times)
+                              Example: -s pspdfkit -s nutrient
+
+    -u, --url <url>           Google Play Store URL
+                              Example: https://play.google.com/store/apps/details?id=com.example.app
+
+    -p, --package <id>        Package name (bundle identifier)
+                              Example: com.example.app
+
+    -f, --file <path>         Path to existing APK file to analyze
+
+    -o, --output <file>       Output report file (default: auto-generated with app name)
+
+    -w, --work-dir <dir>      Working directory for analysis (default: auto-generated)
+
+    --no-cleanup              Don't delete temporary files after analysis
+
+    -v, --verbose             Enable verbose output
+
+    -h, --help                Show this help message
+
+${BOLD}EXAMPLES:${NC}
+    # Analyze app from Play Store URL
+    $0 -s pspdfkit -s nutrient -u "https://play.google.com/store/apps/details?id=com.example.app"
+
+    # Analyze using package name
+    $0 -s pspdfkit -p com.example.app
+
+    # Analyze existing APK file
+    $0 -s pspdfkit -f /path/to/app.apk
+
+    # Analyze with custom output and keep files
+    $0 -s pspdfkit -p com.example.app -o my-report.txt --no-cleanup
+
+${BOLD}APK DOWNLOAD METHODS:${NC}
+    This script supports multiple methods to obtain APKs:
+
+    1. Provide existing APK file (-f flag)
+    2. Download from third-party sources (APKPure, APKMirror)
+    3. Extract from connected Android device using ADB
+
+    Note: Google does not provide official API for Play Store downloads.
+
+${BOLD}REQUIREMENTS:${NC}
+    - macOS or Linux
+    - Java JDK (for apktool)
+    - Internet connection (for downloads)
+    - Optional: Android device + ADB (for device extraction)
+
+EOF
+}
+
+################################################################################
+# Validation Functions
+################################################################################
+
+install_homebrew() {
+    print_info "Homebrew not found. Installing Homebrew..."
+    echo ""
+
+    /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+    if [[ $(uname -m) == 'arm64' ]]; then
+        eval "$(/opt/homebrew/bin/brew shellenv)"
+    else
+        eval "$(/usr/local/bin/brew shellenv)"
+    fi
+
+    if command -v brew &> /dev/null; then
+        print_success "Homebrew installed successfully"
+    else
+        print_error "Homebrew installation failed"
+        exit 1
+    fi
+}
+
+install_apktool() {
+    print_info "apktool not found. Installing apktool via Homebrew..."
+
+    if ! brew install apktool; then
+        print_error "Failed to install apktool"
+        echo ""
+        echo "Please try manually:"
+        echo "  $ brew install apktool"
+        exit 1
+    fi
+
+    print_success "apktool installed successfully"
+}
+
+check_java() {
+    if ! command -v java &> /dev/null; then
+        print_warning "Java not found. apktool requires Java."
+        echo ""
+        echo "Installing Java via Homebrew..."
+        brew install openjdk
+
+        # Link Java
+        if [[ $(uname -m) == 'arm64' ]]; then
+            sudo ln -sfn /opt/homebrew/opt/openjdk/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk 2>/dev/null || true
+        else
+            sudo ln -sfn /usr/local/opt/openjdk/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk.jdk 2>/dev/null || true
+        fi
+
+        print_success "Java installed"
+    else
+        log_verbose "Java: found"
+    fi
+}
+
+check_requirements() {
+    print_header "Checking Requirements"
+
+    # Check for Homebrew (macOS only)
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if ! command -v brew &> /dev/null; then
+            install_homebrew
+        else
+            log_verbose "Homebrew: found"
+            print_success "Homebrew is installed"
+        fi
+    fi
+
+    # Check for Java
+    check_java
+
+    # Check for apktool
+    if ! command -v apktool &> /dev/null; then
+        if [[ "$OSTYPE" == "darwin"* ]]; then
+            install_apktool
+        else
+            print_error "apktool not found"
+            echo ""
+            echo "Please install apktool:"
+            echo "  - Ubuntu/Debian: sudo apt-get install apktool"
+            echo "  - Arch: sudo pacman -S android-apktool"
+            echo "  - Or download from: https://ibotpeaches.github.io/Apktool/"
+            exit 1
+        fi
+    else
+        log_verbose "apktool: found"
+        print_success "apktool is installed"
+    fi
+
+    # Check for other required commands
+    local missing_tools=()
+    for cmd in unzip grep find strings; do
+        if ! command -v $cmd &> /dev/null; then
+            missing_tools+=("$cmd")
+        else
+            log_verbose "$cmd: found"
+        fi
+    done
+
+    if [ ${#missing_tools[@]} -ne 0 ]; then
+        print_error "Missing required tools: ${missing_tools[*]}"
+        exit 1
+    fi
+
+    print_success "All required tools found"
+}
+
+validate_inputs() {
+    if [ ${#SDK_NAMES[@]} -eq 0 ]; then
+        print_error "At least one SDK name is required (-s/--sdk)"
+        echo ""
+        show_usage
+        exit 1
+    fi
+
+    # Check that at least one app identifier is provided
+    if [ -z "$PLAY_STORE_URL" ] && [ -z "$PACKAGE_NAME" ] && [ -z "$APK_FILE" ]; then
+        print_error "Must provide one of: --url, --package, or --file"
+        echo ""
+        show_usage
+        exit 1
+    fi
+}
+
+################################################################################
+# APK Acquisition Functions
+################################################################################
+
+extract_package_from_url() {
+    local url="$1"
+    # Extract package name from Play Store URL
+    # Example: https://play.google.com/store/apps/details?id=com.example.app
+    local package=$(echo "$url" | grep -oE 'id=[^&]+' | cut -d'=' -f2)
+
+    if [ -z "$package" ]; then
+        print_error "Could not extract package name from URL: $url"
+        echo ""
+        echo "Please provide a valid Play Store URL."
+        echo "Example: https://play.google.com/store/apps/details?id=com.example.app"
+        exit 1
+    fi
+
+    echo "$package"
+}
+
+download_apk_apkpure() {
+    local package="$1"
+    local output_file="$2"
+
+    print_info "Attempting to download APK from APKPure..."
+
+    # APKPure download URL format
+    local apkpure_url="https://d.apkpure.com/b/APK/${package}?version=latest"
+
+    if curl -L -o "$output_file" "$apkpure_url" 2>/dev/null; then
+        # Verify it's actually an APK
+        if file "$output_file" | grep -q "Zip archive data"; then
+            print_success "Downloaded APK from APKPure"
+            return 0
+        fi
+    fi
+
+    return 1
+}
+
+download_apk_device() {
+    local package="$1"
+    local output_file="$2"
+
+    # Check if ADB is available
+    if ! command -v adb &> /dev/null; then
+        return 1
+    fi
+
+    print_info "Attempting to extract APK from connected Android device..."
+
+    # Check if device is connected
+    if ! adb devices | grep -q "device$"; then
+        print_warning "No Android device connected via ADB"
+        return 1
+    fi
+
+    # Get APK path on device
+    local apk_path=$(adb shell pm path "$package" 2>/dev/null | cut -d':' -f2 | tr -d '\r')
+
+    if [ -z "$apk_path" ]; then
+        print_warning "Package $package not found on connected device"
+        return 1
+    fi
+
+    # Pull APK from device
+    if adb pull "$apk_path" "$output_file" &>/dev/null; then
+        print_success "Extracted APK from Android device"
+        return 0
+    fi
+
+    return 1
+}
+
+get_apk() {
+    print_header "Obtaining APK"
+
+    mkdir -p "$WORK_DIR"
+    cd "$WORK_DIR"
+
+    local apk_file="app.apk"
+
+    # Option 1: User provided APK file
+    if [ -n "$APK_FILE" ]; then
+        if [ ! -f "$APK_FILE" ]; then
+            print_error "APK file not found: $APK_FILE"
+            exit 1
+        fi
+
+        print_info "Using provided APK file: $APK_FILE"
+        cp "$APK_FILE" "$apk_file"
+        print_success "APK file copied"
+        return 0
+    fi
+
+    # Extract package name from URL if provided
+    if [ -n "$PLAY_STORE_URL" ]; then
+        PACKAGE_NAME=$(extract_package_from_url "$PLAY_STORE_URL")
+        print_success "Extracted package name: $PACKAGE_NAME"
+    fi
+
+    print_info "Package name: $PACKAGE_NAME"
+    echo ""
+    print_info "Trying multiple download methods..."
+    echo ""
+
+    # Try method 1: APKPure
+    if download_apk_apkpure "$PACKAGE_NAME" "$apk_file"; then
+        return 0
+    fi
+
+    # Try method 2: Connected Android device
+    if download_apk_device "$PACKAGE_NAME" "$apk_file"; then
+        return 0
+    fi
+
+    # All methods failed - provide user-friendly guidance
+    print_error "Could not obtain APK automatically"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    print_warning "Don't worry! Here's how to get the APK manually:"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo -e "${BOLD}OPTION 1: Download from APKPure (Easiest)${NC}"
+    echo ""
+    echo "  1. Open this URL in your browser:"
+    echo -e "     ${CYAN}https://apkpure.com/search?q=$PACKAGE_NAME${NC}"
+    echo ""
+    echo "  2. Click on the first result (the correct app)"
+    echo "  3. Click the green 'Download APK' button"
+    echo "  4. Save the file (it will be named like: app-name.apk)"
+    echo ""
+    echo "  5. Then run this exact command:"
+    echo -e "     ${GREEN}$0 $(echo "$@" | sed 's/-u [^ ]*//' | sed 's/-p [^ ]*//')--file ~/Downloads/*.apk${NC}"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo -e "${BOLD}OPTION 2: Download from APKMirror (Alternative)${NC}"
+    echo ""
+    echo "  1. Open this URL in your browser:"
+    echo -e "     ${CYAN}https://www.apkmirror.com/apk/$(echo $PACKAGE_NAME | cut -d'.' -f1-2)/${NC}"
+    echo ""
+    echo "  2. Find and click on the app"
+    echo "  3. Click on the latest version"
+    echo "  4. Scroll down and click 'Download APK'"
+    echo "  5. Click 'Download' again to confirm"
+    echo ""
+    echo "  6. Then run:"
+    echo -e "     ${GREEN}$0 $(echo "$@" | sed 's/-u [^ ]*//' | sed 's/-p [^ ]*//')--file ~/Downloads/*.apk${NC}"
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    echo -e "${BOLD}OPTION 3: Copy from Android Device${NC}"
+    echo ""
+
+    # Check if ADB is available
+    if command -v adb &> /dev/null; then
+        echo "  ADB is installed! Run these commands:"
+        echo ""
+        echo -e "  ${GREEN}# 1. Connect your Android device via USB${NC}"
+        echo -e "  ${GREEN}# 2. Enable 'USB Debugging' on your device${NC}"
+        echo -e "  ${GREEN}# 3. Install the app from Play Store on your device${NC}"
+        echo -e "  ${GREEN}# 4. Run this command:${NC}"
+        echo ""
+        echo -e "  ${CYAN}adb pull \$(adb shell pm path $PACKAGE_NAME 2>/dev/null | cut -d':' -f2 | tr -d '\\r') $WORK_DIR/app.apk && $0 $(echo "$@" | sed 's/-u [^ ]*//' | sed 's/-p [^ ]*//')--file $WORK_DIR/app.apk${NC}"
+        echo ""
+    else
+        echo -e "  ${YELLOW}ADB not installed. Install with: brew install android-platform-tools${NC}"
+        echo ""
+        echo "  Then:"
+        echo -e "  ${GREEN}# 1. Connect Android device via USB${NC}"
+        echo -e "  ${GREEN}# 2. Enable USB debugging on device${NC}"
+        echo -e "  ${GREEN}# 3. Install the app on device${NC}"
+        echo -e "  ${GREEN}# 4. Run: adb pull \$(adb shell pm path $PACKAGE_NAME | cut -d':' -f2) app.apk${NC}"
+        echo -e "  ${GREEN}# 5. Run: $0 $(echo "$@" | sed 's/-u [^ ]*//' | sed 's/-p [^ ]*//')--file app.apk${NC}"
+    fi
+    echo ""
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    print_info "After downloading, the script will automatically analyze the APK!"
+    echo ""
+
+    # Offer to open browser
+    echo ""
+    read -p "Would you like to open APKPure in your browser now? (y/n): " open_browser
+    if [[ $open_browser =~ ^[Yy]$ ]]; then
+        open "https://apkpure.com/search?q=$PACKAGE_NAME" 2>/dev/null || \
+        xdg-open "https://apkpure.com/search?q=$PACKAGE_NAME" 2>/dev/null || \
+        echo "Please open: https://apkpure.com/search?q=$PACKAGE_NAME"
+        echo ""
+        print_success "Browser opened! Download the APK and run the command shown above."
+    fi
+
+    echo ""
+    exit 1
+}
+
+################################################################################
+# Analysis Functions
+################################################################################
+
+extract_apk() {
+    print_header "Extracting APK"
+
+    cd "$WORK_DIR"
+
+    if [ ! -f "app.apk" ]; then
+        print_error "APK file not found"
+        exit 1
+    fi
+
+    print_info "Decompiling APK with apktool..."
+
+    if ! apktool d app.apk -o extracted -f &>/dev/null; then
+        print_error "Failed to decompile APK"
+        exit 1
+    fi
+
+    print_success "APK decompiled"
+
+    # Also extract as zip for direct file access
+    print_info "Extracting APK contents..."
+    mkdir -p extracted-raw
+    unzip -q app.apk -d extracted-raw 2>/dev/null || true
+
+    print_success "APK extracted"
+
+    APK_EXTRACTED_PATH="$WORK_DIR/extracted"
+    APK_RAW_PATH="$WORK_DIR/extracted-raw"
+}
+
+get_app_info() {
+    print_header "App Information"
+
+    cd "$APK_EXTRACTED_PATH"
+
+    local manifest="AndroidManifest.xml"
+
+    if [ ! -f "$manifest" ]; then
+        print_warning "AndroidManifest.xml not found"
+        return
+    fi
+
+    # Extract app info from manifest
+    APP_INFO_PACKAGE=$(grep -oP 'package="\K[^"]+' "$manifest" | head -1 || echo "N/A")
+    APP_INFO_VERSION_NAME=$(grep -oP 'versionName="\K[^"]+' "$manifest" | head -1 || echo "N/A")
+    APP_INFO_VERSION_CODE=$(grep -oP 'versionCode="\K[^"]+' "$manifest" | head -1 || echo "N/A")
+
+    # Try to get app name from strings
+    local strings_file="res/values/strings.xml"
+    if [ -f "$strings_file" ]; then
+        APP_INFO_NAME=$(grep -oP 'name="app_name">\\K[^<]+' "$strings_file" | head -1 || echo "$APP_INFO_PACKAGE")
+    else
+        APP_INFO_NAME="$APP_INFO_PACKAGE"
+    fi
+
+    echo "Package:      $APP_INFO_PACKAGE"
+    echo "Name:         $APP_INFO_NAME"
+    echo "Version:      $APP_INFO_VERSION_NAME"
+    echo "Version Code: $APP_INFO_VERSION_CODE"
+
+    local apk_size=$(du -sh "$WORK_DIR/app.apk" 2>/dev/null | cut -f1)
+    echo "APK Size:     $apk_size"
+}
+
+detect_sdks() {
+    print_header "SDK Detection"
+
+    DETECTED_SDKS=()
+
+    for sdk_name in "${SDK_NAMES[@]}"; do
+        echo -e "\n${BOLD}Searching for: ${sdk_name}${NC}"
+
+        local found=false
+        local details=""
+
+        # Method 1: Check lib/ directories for native libraries
+        log_verbose "Checking native libraries..."
+        if [ -d "$APK_RAW_PATH/lib" ]; then
+            local native_libs=$(find "$APK_RAW_PATH/lib" -type f -iname "*${sdk_name}*" 2>/dev/null || true)
+
+            if [ -n "$native_libs" ]; then
+                found=true
+                print_found "Native libraries detected"
+
+                echo "$native_libs" | while IFS= read -r lib; do
+                    local lib_name=$(basename "$lib")
+                    local lib_size=$(du -h "$lib" 2>/dev/null | cut -f1)
+                    echo "  📦 $lib_name ($lib_size)"
+                done
+
+                local lib_count=$(echo "$native_libs" | wc -l | tr -d ' ')
+                details="$details\n  - Native libraries: $lib_count file(s)"
+            fi
+        fi
+
+        # Method 2: Check for Java classes/packages
+        log_verbose "Checking Java classes..."
+        local java_classes=$(find "$APK_EXTRACTED_PATH" -type f -path "*smali*" -iname "*${sdk_name}*" 2>/dev/null | head -20 || true)
+
+        if [ -n "$java_classes" ]; then
+            local class_count=$(echo "$java_classes" | wc -l | tr -d ' ')
+            if [ "$class_count" -gt 0 ]; then
+                if [ "$found" = false ]; then
+                    found=true
+                fi
+                print_found "Java classes detected ($class_count files)"
+
+                if [ "$VERBOSE" = true ]; then
+                    echo "$java_classes" | head -5 | while IFS= read -r class; do
+                        local class_name=$(basename "$class")
+                        echo "  📄 $class_name"
+                    done
+                fi
+
+                details="$details\n  - Java classes: $class_count file(s)"
+            fi
+        fi
+
+        # Method 3: Check for SDK in assets or resources
+        log_verbose "Checking assets and resources..."
+        local assets=$(find "$APK_EXTRACTED_PATH" -type f \( -path "*/assets/*" -o -path "*/res/*" \) -iname "*${sdk_name}*" 2>/dev/null | head -10 || true)
+
+        if [ -n "$assets" ]; then
+            local asset_count=$(echo "$assets" | wc -l | tr -d ' ')
+            if [ "$asset_count" -gt 0 ]; then
+                if [ "$found" = false ]; then
+                    found=true
+                fi
+                print_found "Assets/resources detected ($asset_count files)"
+
+                details="$details\n  - Assets/resources: $asset_count file(s)"
+            fi
+        fi
+
+        # Method 4: Search in manifest and XML files
+        log_verbose "Checking manifest and XML files..."
+        if grep -r -i "$sdk_name" "$APK_EXTRACTED_PATH/AndroidManifest.xml" &>/dev/null; then
+            if [ "$found" = false ]; then
+                found=true
+            fi
+            print_found "References in AndroidManifest.xml"
+            details="$details\n  - Mentioned in AndroidManifest.xml"
+        fi
+
+        # Summary for this SDK
+        if [ "$found" = true ]; then
+            DETECTED_SDKS+=("$sdk_name")
+            echo -e "\n${GREEN}${BOLD}✅ RESULT: $sdk_name SDK IS PRESENT${NC}"
+        else
+            echo -e "\n${RED}${BOLD}❌ RESULT: $sdk_name SDK NOT DETECTED${NC}"
+        fi
+
+        # Store details for report
+        eval "SDK_DETAILS_${sdk_name}='$details'"
+    done
+}
+
+################################################################################
+# Report Generation
+################################################################################
+
+generate_report() {
+    print_header "Generating Report"
+
+    # Create filename with package name
+    local report_filename="$OUTPUT_REPORT"
+
+    if [ "$OUTPUT_REPORT" = "sdk-detection-report.txt" ]; then
+        local identifier="${APP_INFO_PACKAGE}"
+        if [ -z "$identifier" ] || [ "$identifier" = "N/A" ]; then
+            identifier="${APP_INFO_NAME}"
+        fi
+
+        identifier=$(echo "$identifier" | tr '.' '-' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
+
+        local timestamp=$(date +%Y%m%d-%H%M%S)
+        report_filename="sdk-detection-android-${identifier}-${timestamp}.txt"
+    fi
+
+    local report_file="$ORIGINAL_DIR/$report_filename"
+    FINAL_REPORT_PATH="$report_file"
+
+    cat > "$report_file" << EOF
+================================================================================
+ANDROID APP SDK DETECTION REPORT
+================================================================================
+
+Generated: $(date "+%Y-%m-%d %H:%M:%S")
+Analysis Tool: Android SDK Detection Script v1.0
+
+================================================================================
+APP INFORMATION
+================================================================================
+
+Package:        $APP_INFO_PACKAGE
+Name:           $APP_INFO_NAME
+Version:        $APP_INFO_VERSION_NAME
+Version Code:   $APP_INFO_VERSION_CODE
+APK Size:       $(du -sh "$WORK_DIR/app.apk" 2>/dev/null | cut -f1)
+
+================================================================================
+SDK DETECTION RESULTS
+================================================================================
+
+Searched for SDKs: ${SDK_NAMES[*]}
+
+EOF
+
+    if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
+        cat >> "$report_file" << EOF
+RESULT: ❌ NONE OF THE SPECIFIED SDKs WERE DETECTED
+
+The app does not appear to contain any of the following SDKs:
+EOF
+        for sdk in "${SDK_NAMES[@]}"; do
+            echo "  - $sdk" >> "$report_file"
+        done
+    else
+        cat >> "$report_file" << EOF
+RESULT: ✅ THE FOLLOWING SDKs WERE DETECTED:
+
+EOF
+        for sdk in "${DETECTED_SDKS[@]}"; do
+            echo "✅ $sdk" >> "$report_file"
+
+            local details_var="SDK_DETAILS_${sdk}"
+            local details="${!details_var}"
+            if [ -n "$details" ]; then
+                echo -e "$details" >> "$report_file"
+            fi
+            echo "" >> "$report_file"
+        done
+
+        cat >> "$report_file" << EOF
+
+The following SDKs were NOT detected:
+EOF
+        for sdk in "${SDK_NAMES[@]}"; do
+            if [[ ! " ${DETECTED_SDKS[@]} " =~ " ${sdk} " ]]; then
+                echo "  - $sdk" >> "$report_file"
+            fi
+        done
+    fi
+
+    cat >> "$report_file" << EOF
+
+================================================================================
+DETECTION METHODS USED
+================================================================================
+
+1. Native Library Inspection
+   - Searched lib/ directories for .so files
+   - Checked all CPU architectures (arm, arm64, x86, etc.)
+
+2. Java Class Analysis
+   - Searched decompiled smali code for SDK classes
+   - Checked package names and class hierarchies
+
+3. Asset and Resource Search
+   - Searched assets/ directory for SDK files
+   - Checked res/ directory for SDK resources
+
+4. Manifest Analysis
+   - Checked AndroidManifest.xml for SDK references
+   - Verified permissions and SDK declarations
+
+================================================================================
+CONCLUSION
+================================================================================
+
+EOF
+
+    if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
+        cat >> "$report_file" << EOF
+The analyzed Android app does NOT contain any of the specified SDKs.
+
+If you expected to find these SDKs, consider:
+- The SDK may be obfuscated or renamed (ProGuard/R8)
+- The SDK may have been removed in this version
+- The search terms may need adjustment
+- Try analyzing with ProGuard mapping file if available
+
+EOF
+    else
+        cat >> "$report_file" << EOF
+The analyzed Android app CONTAINS the following SDK(s): ${DETECTED_SDKS[*]}
+
+This indicates active integration of the SDK in the current version.
+
+For license compliance:
+- Verify if this usage is authorized
+- Check if the SDK version matches license terms
+- Document the findings appropriately
+- Contact the app developer if unauthorized use is suspected
+
+EOF
+    fi
+
+    cat >> "$report_file" << EOF
+================================================================================
+TECHNICAL DETAILS
+================================================================================
+
+Analysis Directory: $WORK_DIR
+Package Name:       $APP_INFO_PACKAGE
+APK Path:           $WORK_DIR/app.apk
+
+================================================================================
+END OF REPORT
+================================================================================
+EOF
+
+    print_success "Report saved to: $report_file"
+
+    # Display report
+    echo ""
+    cat "$report_file"
+}
+
+################################################################################
+# Cleanup
+################################################################################
+
+cleanup() {
+    cd "$ORIGINAL_DIR"
+
+    if [ "$CLEANUP" = true ]; then
+        print_header "Cleanup"
+        print_info "Removing temporary files from: $WORK_DIR"
+        rm -rf "$WORK_DIR"
+        print_success "Cleanup complete"
+        print_info "Report saved to: $FINAL_REPORT_PATH"
+    else
+        print_info "Analysis files kept at: $WORK_DIR"
+        print_info "Report saved to: $FINAL_REPORT_PATH"
+    fi
+}
+
+################################################################################
+# Main Script
+################################################################################
+
+main() {
+    # Parse command line arguments
+    while [[ $# -gt 0 ]]; do
+        case $1 in
+            -s|--sdk)
+                SDK_NAMES+=("$2")
+                shift 2
+                ;;
+            -u|--url)
+                PLAY_STORE_URL="$2"
+                shift 2
+                ;;
+            -p|--package)
+                PACKAGE_NAME="$2"
+                shift 2
+                ;;
+            -f|--file)
+                APK_FILE="$2"
+                shift 2
+                ;;
+            -o|--output)
+                OUTPUT_REPORT="$2"
+                shift 2
+                ;;
+            -w|--work-dir)
+                WORK_DIR="$2"
+                shift 2
+                ;;
+            --no-cleanup)
+                CLEANUP=false
+                shift
+                ;;
+            -v|--verbose)
+                VERBOSE=true
+                shift
+                ;;
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                echo ""
+                show_usage
+                exit 1
+                ;;
+        esac
+    done
+
+    # Print banner
+    echo -e "${BOLD}${CYAN}"
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║      Android App SDK Detection Script v1.0                     ║"
+    echo "║      License Compliance & Security Analysis                    ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo -e "${NC}\n"
+
+    # Validate inputs
+    validate_inputs
+
+    # Check requirements
+    check_requirements
+
+    # Get APK
+    get_apk
+
+    # Extract APK
+    extract_apk
+
+    # Get app info
+    get_app_info
+
+    # Detect SDKs
+    detect_sdks
+
+    # Generate report
+    generate_report
+
+    # Cleanup
+    cleanup
+
+    # Final summary
+    print_header "Analysis Complete"
+
+    if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
+        echo -e "${RED}${BOLD}No SDKs detected${NC}"
+    else
+        echo -e "${GREEN}${BOLD}Detected SDKs: ${DETECTED_SDKS[*]}${NC}"
+    fi
+
+    echo ""
+    echo -e "${BLUE}${BOLD}📄 Full report: $FINAL_REPORT_PATH${NC}"
+    exit 0
+}
+
+# Run main function
+main "$@"

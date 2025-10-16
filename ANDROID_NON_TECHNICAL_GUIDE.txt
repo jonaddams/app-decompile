@@ -1,0 +1,219 @@
+╔════════════════════════════════════════════════════════════════╗
+║      ANDROID SDK DETECTION - FOR NON-TECHNICAL USERS           ║
+║            Simplified Step-by-Step Guide                       ║
+╚════════════════════════════════════════════════════════════════╝
+
+🎯 WHAT THIS DOES:
+Checks if a customer's Android app still has your SDK installed.
+
+📋 WHAT YOU NEED:
+1. A Mac or Linux computer
+2. The Google Play Store link for the app
+
+═══════════════════════════════════════════════════════════════
+
+⚡ SUPER EASY METHOD (2 STEPS):
+
+Step 1: Try Auto-Download
+  Copy and paste this command (replace the URL):
+
+  ./download-apk-helper.sh "https://play.google.com/store/apps/details?id=com.example.app"
+
+Step 2: If Auto-Download Works
+  You'll see "Ready to analyze!" 
+  Then copy and paste the command it shows you.
+
+Step 2 (Alternative): If Auto-Download Fails
+  The script will:
+  ✅ Open APKPure website in your browser
+  ✅ Show you exactly which buttons to click
+  ✅ Give you the exact command to run after download
+
+═══════════════════════════════════════════════════════════════
+
+📝 DETAILED WALKTHROUGH:
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1: Get the App's Google Play Link
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Open Google Play Store in browser
+2. Search for customer's app
+3. Copy the URL from address bar
+
+Example:
+  https://play.google.com/store/apps/details?id=com.customer.app
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2: Open Terminal
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Mac:
+  Applications → Utilities → Terminal
+
+Linux:
+  Press Ctrl+Alt+T
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 3: Navigate to Script Folder
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Type: cd 
+Then drag the folder with the scripts into Terminal
+Press Enter
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 4: Download the APK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Copy this command (replace URL with your app's URL):
+
+  ./download-apk-helper.sh "https://play.google.com/store/apps/details?id=com.customer.app"
+
+Press Enter
+
+What happens:
+  • Script tries to download automatically
+  • If it works: APK saved as "downloaded.apk" ✅
+  • If it fails: Browser opens to APKPure website
+
+If browser opens:
+  1. Click on first search result (your app)
+  2. Click green "Download APK" button  
+  3. Wait for download (1-2 minutes)
+  4. File saved to Downloads folder ✅
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 5: Analyze the APK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+If download-apk-helper worked:
+  ./detect-sdk-android.sh -s pspdfkit -s nutrient -f downloaded.apk
+
+If you downloaded from browser:
+  ./detect-sdk-android.sh -s pspdfkit -s nutrient -f ~/Downloads/*.apk
+
+Press Enter and wait 2-3 minutes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 6: Read the Results
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You'll see:
+
+✅ RESULT: pspdfkit SDK IS PRESENT
+   Customer still has your SDK (needs to be contacted)
+
+OR
+
+❌ RESULT: pspdfkit SDK NOT DETECTED  
+   Customer removed the SDK (all clear)
+
+Report saved as:
+  sdk-detection-android-com-customer-app-20251016-103045.txt
+
+═══════════════════════════════════════════════════════════════
+
+💡 COMPLETE EXAMPLE:
+
+Let's check "MaaS360" app:
+
+1. Get Play Store link:
+   https://play.google.com/store/apps/details?id=com.fiberlink.maas360.android.control
+
+2. Try auto-download:
+   $ ./download-apk-helper.sh "https://play.google.com/store/apps/details?id=com.fiberlink.maas360.android.control"
+
+3a. If it works:
+   ✅ Downloaded from APKPure!
+   APK saved as: downloaded.apk
+   
+   Run: ./detect-sdk-android.sh -s pspdfkit -f downloaded.apk
+
+3b. If it fails (enterprise apps like MaaS360):
+   ⚠️  Auto-download doesn't work for enterprise apps
+
+   OPTION A - APKMirror (Recommended for Enterprise Apps):
+   → Open: https://www.apkmirror.com
+   → Search "MaaS360"
+   → Click "MaaS360 MDM by IBM"
+   → Click latest version number
+   → Scroll down, click "Download APK"
+   → On next page, click "Download [app-name]"
+   → Wait for download
+
+   OPTION B - APKPure (if APKMirror doesn't work):
+   → Browser auto-opens to APKPure search
+   → Click on "MaaS360 MDM"
+   → Click "Download APK" button
+   → Wait for download
+
+   Then run:
+   $ ./detect-sdk-android.sh -s pspdfkit -f ~/Downloads/maas360*.apk
+
+4. Read results:
+   ✅ or ❌ - SDK present or not
+
+5. Keep the report file for your records!
+
+═══════════════════════════════════════════════════════════════
+
+❓ TROUBLESHOOTING:
+
+Q: "Permission denied" error
+A: Run: chmod +x download-apk-helper.sh detect-sdk-android.sh
+
+Q: "Command not found"
+A: Make sure you're in the right folder (Step 3)
+
+Q: APKPure doesn't have my app (especially enterprise/MDM apps)
+A: Use APKMirror instead (more reliable for enterprise apps):
+   1. Go to: https://www.apkmirror.com
+   2. Search for app name
+   3. Click on the app result
+   4. Click latest version number
+   5. Scroll down, click "Download APK"
+   6. On next page, click "Download [app-name]"
+   7. Then run: ./detect-sdk-android.sh -s pspdfkit -f ~/Downloads/*.apk
+
+Q: Script is downloading lots of stuff
+A: First time only - installing Java & tools (5-10 mins)
+
+Q: Can I check multiple apps?
+A: Yes! Repeat steps for each customer app
+
+Q: Where are the reports saved?
+A: In the same folder as the scripts
+   Named: sdk-detection-android-{app-name}-{date}.txt
+
+═══════════════════════════════════════════════════════════════
+
+✅ KEY POINTS TO REMEMBER:
+
+1. Always use download-apk-helper.sh first (easiest)
+2. If auto-download fails, manually download from APKPure
+3. Keep Terminal open while script runs
+4. Wait patiently (2-3 minutes for analysis)
+5. Save the report file for records
+6. Each app creates a unique report
+
+═══════════════════════════════════════════════════════════════
+
+🎯 SCRIPTS YOU'LL USE:
+
+For downloading:
+  ./download-apk-helper.sh <play-store-url>
+
+For analyzing:
+  ./detect-sdk-android.sh -s pspdfkit -s nutrient -f <apk-file>
+
+That's it! Two commands total.
+
+═══════════════════════════════════════════════════════════════
+
+📚 NEED MORE HELP?
+
+See full guide: ANDROID_GUIDE.md
+See technical details: detect-sdk-android.sh --help
+
+═══════════════════════════════════════════════════════════════
