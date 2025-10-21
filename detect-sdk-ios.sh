@@ -135,6 +135,17 @@ ${BOLD}REQUIREMENTS:${NC}
     - Internet connection
     - Apple ID account (for downloading apps)
 
+${BOLD}IMPORTANT LIMITATIONS:${NC}
+    ipatool can ONLY download apps that meet BOTH conditions:
+    1. Available in your Apple ID's region (US, UK, etc.)
+    2. Previously purchased/downloaded by your Apple ID
+
+    Common errors:
+    - "item is temporarily unavailable" = App not in your region or not purchased
+    - "password token is expired" = Run: ipatool auth login --email your@email.com
+
+    To test: Use apps you've already downloaded from your region's App Store.
+
 EOF
 }
 
@@ -188,6 +199,10 @@ authenticate_ipatool() {
     echo ""
     echo "You need to authenticate with your Apple ID to download apps."
     echo ""
+    echo "IMPORTANT: ipatool can ONLY download apps that are:"
+    echo "  1. Available in your Apple ID's region"
+    echo "  2. Previously purchased/downloaded by your Apple ID"
+    echo ""
     read -p "Enter your Apple ID email: " apple_id
 
     if [ -z "$apple_id" ]; then
@@ -207,6 +222,11 @@ authenticate_ipatool() {
     fi
 
     print_success "Successfully authenticated with Apple ID"
+    echo ""
+    print_info "If downloads fail with 'temporarily unavailable':"
+    echo "  - The app may not be in your Apple ID's region"
+    echo "  - You may not have previously downloaded the app"
+    echo "  - Try with apps you've already installed on your devices"
 }
 
 check_requirements() {
@@ -256,6 +276,9 @@ check_requirements() {
     else
         local auth_email=$(ipatool auth info 2>/dev/null | grep -o 'email=[^ ]*' | cut -d= -f2)
         print_success "ipatool is authenticated (${auth_email})"
+
+        # Provide helpful reminder about limitations
+        log_verbose "Note: Can only download apps from your Apple ID's region that you've previously downloaded"
     fi
 }
 
@@ -392,6 +415,21 @@ download_app() {
 
     if ! eval "$download_cmd"; then
         print_error "Failed to download app"
+        echo ""
+        echo "Common causes:"
+        echo "  1. 'password token is expired' - Re-authenticate:"
+        echo "     $ ipatool auth login --email your@email.com"
+        echo ""
+        echo "  2. 'temporarily unavailable' - The app either:"
+        echo "     - Is not available in your Apple ID's region"
+        echo "     - Has not been previously downloaded by your Apple ID"
+        echo ""
+        echo "  3. Region mismatch - Your Apple ID region must match the app's region"
+        echo ""
+        echo "Tips:"
+        echo "  - Use apps you've already installed on your iOS devices"
+        echo "  - Try searching: ipatool search 'App Name'"
+        echo "  - Test with popular free apps from your region's App Store"
         exit 1
     fi
 
