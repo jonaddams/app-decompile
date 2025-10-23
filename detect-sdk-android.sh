@@ -34,6 +34,9 @@ APK_FILE=""
 OUTPUT_REPORT="sdk-detection-report.txt"
 CLEANUP=true
 VERBOSE=false
+LIST_ALL_LIBRARIES=false
+COMPETITORS_FILE="$ORIGINAL_DIR/competitors.txt"
+COMPETITOR_PRODUCTS=()
 
 ################################################################################
 # Helper Functions
@@ -85,6 +88,9 @@ ${BOLD}USAGE:${NC}
 ${BOLD}OPTIONS:${NC}
     -s, --sdk <name>          SDK name to search for (can be used multiple times)
                               Example: -s pspdfkit -s nutrient
+                              Note: If not specified, all libraries will be listed
+
+    -a, --list-all            List all libraries and SDKs (default if no -s specified)
 
     -u, --url <url>           Google Play Store URL
                               Example: https://play.google.com/store/apps/details?id=com.example.app
@@ -105,17 +111,20 @@ ${BOLD}OPTIONS:${NC}
     -h, --help                Show this help message
 
 ${BOLD}EXAMPLES:${NC}
-    # Analyze app from Play Store URL
+    # List all libraries in an APK
+    $0 -f /path/to/app.apk
+
+    # Analyze app from Play Store URL for specific SDKs
     $0 -s pspdfkit -s nutrient -u "https://play.google.com/store/apps/details?id=com.example.app"
 
-    # Analyze using package name
-    $0 -s pspdfkit -p com.example.app
+    # List all libraries using package name
+    $0 -p com.example.app
 
-    # Analyze existing APK file
+    # Analyze existing APK file for specific SDK
     $0 -s pspdfkit -f /path/to/app.apk
 
-    # Analyze with custom output and keep files
-    $0 -s pspdfkit -p com.example.app -o my-report.txt --no-cleanup
+    # List all libraries with verbose output and keep files
+    $0 -a -p com.example.app -v --no-cleanup
 
 ${BOLD}APK DOWNLOAD METHODS:${NC}
     This script supports multiple methods to obtain APKs:
@@ -246,11 +255,10 @@ check_requirements() {
 }
 
 validate_inputs() {
+    # If no SDK names provided, enable list all mode
     if [ ${#SDK_NAMES[@]} -eq 0 ]; then
-        print_error "At least one SDK name is required (-s/--sdk)"
-        echo ""
-        show_usage
-        exit 1
+        LIST_ALL_LIBRARIES=true
+        log_verbose "No specific SDKs specified - will list all libraries"
     fi
 
     # Check that at least one app identifier is provided
@@ -530,7 +538,169 @@ get_app_info() {
     echo "APK Size:     $apk_size"
 }
 
+load_competitors() {
+    if [ ! -f "$COMPETITORS_FILE" ]; then
+        log_verbose "Competitors file not found: $COMPETITORS_FILE"
+        return
+    fi
+
+    log_verbose "Loading competitors from: $COMPETITORS_FILE"
+
+    # Read competitors file, extract names, and create search patterns
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        if [ -z "$line" ] || [[ "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        # Extract just the company/product name, removing bracketed text
+        local competitor=$(echo "$line" | sed 's/\[.*\]//' | xargs)
+
+        if [ -n "$competitor" ]; then
+            COMPETITOR_NAMES+=("$competitor")
+        fi
+    done < "$COMPETITORS_FILE"
+
+    log_verbose "Loaded ${#COMPETITOR_NAMES[@]} competitors"
+}
+
+check_for_competitors() {
+    COMPETITOR_PRODUCTS=()
+
+    if [ ${#COMPETITOR_NAMES[@]} -eq 0 ]; then
+        return
+    fi
+
+    log_verbose "Checking for competitor products..."
+
+    # Check all libraries
+    for details in "${ALL_LIBRARY_DETAILS[@]}"; do
+        IFS='|' read -r lib_name lib_path lib_size <<< "$details"
+
+        # Check if library name or path matches any competitor
+        for competitor in "${COMPETITOR_NAMES[@]}"; do
+            # Create case-insensitive pattern
+            local pattern=$(echo "$competitor" | sed 's/ /.*/g')
+
+            if echo "$lib_name" | grep -iq "$pattern" || echo "$lib_path" | grep -iq "$pattern"; then
+                local match_info="$lib_name|$lib_path|$lib_size|$competitor"
+                COMPETITOR_PRODUCTS+=("$match_info")
+                log_verbose "Found competitor match: $competitor in $lib_name"
+                break
+            fi
+        done
+    done
+
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        print_warning "Detected ${#COMPETITOR_PRODUCTS[@]} competitor product(s)"
+    fi
+}
+
+list_all_libraries() {
+    print_header "Library & SDK Analysis"
+
+    ALL_LIBRARIES=()
+    ALL_LIBRARY_DETAILS=()
+    COMPETITOR_NAMES=()
+
+    # Load competitors list
+    load_competitors
+
+    # List all native libraries
+    if [ -d "$APK_RAW_PATH/lib" ]; then
+        echo -e "${BOLD}📦 Native Libraries:${NC}\n"
+
+        local lib_count=0
+        while IFS= read -r lib_file; do
+            if [ -z "$lib_file" ]; then
+                continue
+            fi
+
+            lib_count=$((lib_count + 1))
+            local lib_name=$(basename "$lib_file")
+            local lib_arch=$(basename $(dirname "$lib_file"))
+            local lib_size=$(du -h "$lib_file" 2>/dev/null | cut -f1)
+
+            ALL_LIBRARIES+=("$lib_name")
+
+            echo -e "${CYAN}${BOLD}$lib_count. $lib_name${NC}"
+            echo "   Architecture: $lib_arch"
+            echo "   Size:         $lib_size"
+
+            local lib_details="$lib_name|$lib_file|$lib_size"
+            ALL_LIBRARY_DETAILS+=("$lib_details")
+            echo ""
+        done < <(find "$APK_RAW_PATH/lib" -type f -name "*.so" 2>/dev/null)
+
+        if [ $lib_count -eq 0 ]; then
+            echo "   (No native libraries found)"
+            echo ""
+        else
+            print_success "Found $lib_count native library/libraries"
+        fi
+    else
+        echo -e "${BOLD}📦 Native Libraries:${NC}\n"
+        echo "   (No lib directory found)"
+        echo ""
+    fi
+
+    # Check for competitors
+    check_for_competitors
+
+    # Display competitor products if found
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        echo -e "\n${BOLD}${RED}⚠️  COMPETITOR PRODUCTS DETECTED:${NC}\n"
+
+        local idx=1
+        for match_info in "${COMPETITOR_PRODUCTS[@]}"; do
+            IFS='|' read -r lib_name lib_path lib_size competitor <<< "$match_info"
+            echo -e "${RED}${BOLD}$idx. $lib_name${NC}"
+            echo "   Competitor:  $competitor"
+            echo "   Path:        $lib_path"
+            echo "   Size:        $lib_size"
+            echo ""
+            idx=$((idx + 1))
+        done
+    fi
+
+    # List major Java packages
+    echo -e "\n${BOLD}📚 Java Packages (Top Level):${NC}\n"
+
+    if [ -d "$APK_EXTRACTED_PATH/smali" ]; then
+        # Find top-level packages
+        local packages=$(find "$APK_EXTRACTED_PATH/smali" -maxdepth 2 -type d | grep -v "^$APK_EXTRACTED_PATH/smali$" | sort | head -20)
+
+        if [ -n "$packages" ]; then
+            echo "$packages" | while IFS= read -r pkg; do
+                local pkg_name=$(echo "$pkg" | sed "s|$APK_EXTRACTED_PATH/smali/||" | tr '/' '.')
+                local file_count=$(find "$pkg" -type f -name "*.smali" 2>/dev/null | wc -l | tr -d ' ')
+                echo "   • $pkg_name ($file_count classes)"
+            done
+            echo ""
+        else
+            echo "   (No packages found)"
+            echo ""
+        fi
+    else
+        echo "   (No smali directory found)"
+        echo ""
+    fi
+
+    # Summary
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        echo -e "${RED}${BOLD}⚠️  WARNING: Found ${#COMPETITOR_PRODUCTS[@]} competitor product(s)${NC}"
+    fi
+    echo -e "${GREEN}${BOLD}✅ Analysis complete${NC}"
+}
+
 detect_sdks() {
+    # If listing all libraries, use the new function
+    if [ "$LIST_ALL_LIBRARIES" = true ]; then
+        list_all_libraries
+        return
+    fi
+
+    # Otherwise, search for specific SDKs
     print_header "SDK Detection"
 
     DETECTED_SDKS=()
@@ -642,23 +812,44 @@ generate_report() {
         identifier=$(echo "$identifier" | tr '.' '-' | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
 
         local timestamp=$(date +%Y%m%d-%H%M%S)
-        report_filename="sdk-detection-android-${identifier}-${timestamp}.txt"
+
+        if [ "$LIST_ALL_LIBRARIES" = true ]; then
+            report_filename="library-analysis-android-${identifier}-${timestamp}.txt"
+        else
+            report_filename="sdk-detection-android-${identifier}-${timestamp}.txt"
+        fi
     fi
 
     local report_file="$ORIGINAL_DIR/$report_filename"
     FINAL_REPORT_PATH="$report_file"
 
+    # Generate different reports based on mode
+    if [ "$LIST_ALL_LIBRARIES" = true ]; then
+        generate_all_libraries_report "$report_file"
+    else
+        generate_sdk_detection_report "$report_file"
+    fi
+
+    print_success "Report saved to: $report_file"
+
+    echo ""
+    cat "$report_file"
+}
+
+generate_all_libraries_report() {
+    local report_file="$1"
+
     cat > "$report_file" << EOF
-================================================================================
-ANDROID APP SDK DETECTION REPORT
-================================================================================
+--------------------------------------------------------------------------------
+ANDROID APP LIBRARY & SDK ANALYSIS REPORT
+--------------------------------------------------------------------------------
 
 Generated: $(date "+%Y-%m-%d %H:%M:%S")
 Analysis Tool: Android SDK Detection Script v1.0
 
-================================================================================
+--------------------------------------------------------------------------------
 APP INFORMATION
-================================================================================
+--------------------------------------------------------------------------------
 
 Package:        $APP_INFO_PACKAGE
 Name:           $APP_INFO_NAME
@@ -666,9 +857,146 @@ Version:        $APP_INFO_VERSION_NAME
 Version Code:   $APP_INFO_VERSION_CODE
 APK Size:       $(du -sh "$WORK_DIR/app.apk" 2>/dev/null | cut -f1)
 
-================================================================================
+EOF
+
+    # Add competitor detection section if competitors found
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+⚠️  COMPETITOR PRODUCTS DETECTED
+--------------------------------------------------------------------------------
+
+WARNING: This app contains ${#COMPETITOR_PRODUCTS[@]} competitor product(s):
+
+EOF
+        local idx=1
+        for match_info in "${COMPETITOR_PRODUCTS[@]}"; do
+            IFS='|' read -r lib_name lib_path lib_size competitor <<< "$match_info"
+            cat >> "$report_file" << EOF
+$idx. $lib_name
+   Competitor:  $competitor
+   Path:        $lib_path
+   Size:        $lib_size
+
+EOF
+            idx=$((idx + 1))
+        done
+
+        cat >> "$report_file" << EOF
+
+EOF
+    fi
+
+    cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+NATIVE LIBRARIES
+--------------------------------------------------------------------------------
+
+EOF
+
+    if [ ${#ALL_LIBRARIES[@]} -eq 0 ]; then
+        cat >> "$report_file" << EOF
+No native libraries found in the APK.
+
+EOF
+    else
+        cat >> "$report_file" << EOF
+Found ${#ALL_LIBRARIES[@]} native library/libraries:
+
+EOF
+        local idx=1
+        for details in "${ALL_LIBRARY_DETAILS[@]}"; do
+            IFS='|' read -r lib_name lib_path lib_size <<< "$details"
+            local lib_arch=$(basename $(dirname "$lib_path"))
+            cat >> "$report_file" << EOF
+$idx. $lib_name
+   Architecture: $lib_arch
+   Size:         $lib_size
+
+EOF
+            idx=$((idx + 1))
+        done
+    fi
+
+    cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+JAVA PACKAGES
+--------------------------------------------------------------------------------
+
+EOF
+
+    if [ -d "$APK_EXTRACTED_PATH/smali" ]; then
+        local packages=$(find "$APK_EXTRACTED_PATH/smali" -maxdepth 2 -type d | grep -v "^$APK_EXTRACTED_PATH/smali$" | sort | head -20)
+        if [ -n "$packages" ]; then
+            echo "$packages" | while IFS= read -r pkg; do
+                local pkg_name=$(echo "$pkg" | sed "s|$APK_EXTRACTED_PATH/smali/||" | tr '/' '.')
+                local file_count=$(find "$pkg" -type f -name "*.smali" 2>/dev/null | wc -l | tr -d ' ')
+                echo "  • $pkg_name ($file_count classes)" >> "$report_file"
+            done
+        else
+            echo "  (No packages found)" >> "$report_file"
+        fi
+    else
+        echo "  (No smali directory found)" >> "$report_file"
+    fi
+
+    cat >> "$report_file" << EOF
+
+--------------------------------------------------------------------------------
+ANALYSIS METHODS
+--------------------------------------------------------------------------------
+
+1. Native Library Inspection
+   - Listed all .so files in lib/ directories
+   - Extracted architecture and size information
+
+2. Competitor Detection
+   - Checked libraries against known competitors list
+   - Flagged any matches for review
+
+3. Java Package Analysis
+   - Listed top-level Java packages from decompiled code
+   - Counted classes per package
+
+--------------------------------------------------------------------------------
+TECHNICAL DETAILS
+--------------------------------------------------------------------------------
+
+Analysis Directory: $WORK_DIR
+APK Path:           $WORK_DIR/app.apk
+Extracted Path:     $APK_EXTRACTED_PATH
+Competitors File:   $COMPETITORS_FILE
+
+--------------------------------------------------------------------------------
+END OF REPORT
+--------------------------------------------------------------------------------
+EOF
+}
+
+generate_sdk_detection_report() {
+    local report_file="$1"
+
+    cat > "$report_file" << EOF
+--------------------------------------------------------------------------------
+ANDROID APP SDK DETECTION REPORT
+--------------------------------------------------------------------------------
+
+Generated: $(date "+%Y-%m-%d %H:%M:%S")
+Analysis Tool: Android SDK Detection Script v1.0
+
+--------------------------------------------------------------------------------
+APP INFORMATION
+--------------------------------------------------------------------------------
+
+Package:        $APP_INFO_PACKAGE
+Name:           $APP_INFO_NAME
+Version:        $APP_INFO_VERSION_NAME
+Version Code:   $APP_INFO_VERSION_CODE
+APK Size:       $(du -sh "$WORK_DIR/app.apk" 2>/dev/null | cut -f1)
+
+--------------------------------------------------------------------------------
 SDK DETECTION RESULTS
-================================================================================
+--------------------------------------------------------------------------------
 
 Searched for SDKs: ${SDK_NAMES[*]}
 
@@ -712,9 +1040,9 @@ EOF
 
     cat >> "$report_file" << EOF
 
-================================================================================
+--------------------------------------------------------------------------------
 DETECTION METHODS USED
-================================================================================
+--------------------------------------------------------------------------------
 
 1. Native Library Inspection
    - Searched lib/ directories for .so files
@@ -732,9 +1060,9 @@ DETECTION METHODS USED
    - Checked AndroidManifest.xml for SDK references
    - Verified permissions and SDK declarations
 
-================================================================================
+--------------------------------------------------------------------------------
 CONCLUSION
-================================================================================
+--------------------------------------------------------------------------------
 
 EOF
 
@@ -765,24 +1093,18 @@ EOF
     fi
 
     cat >> "$report_file" << EOF
-================================================================================
+--------------------------------------------------------------------------------
 TECHNICAL DETAILS
-================================================================================
+--------------------------------------------------------------------------------
 
 Analysis Directory: $WORK_DIR
 Package Name:       $APP_INFO_PACKAGE
 APK Path:           $WORK_DIR/app.apk
 
-================================================================================
+--------------------------------------------------------------------------------
 END OF REPORT
-================================================================================
+--------------------------------------------------------------------------------
 EOF
-
-    print_success "Report saved to: $report_file"
-
-    # Display report
-    echo ""
-    cat "$report_file"
 }
 
 ################################################################################
@@ -815,6 +1137,10 @@ main() {
             -s|--sdk)
                 SDK_NAMES+=("$2")
                 shift 2
+                ;;
+            -a|--list-all)
+                LIST_ALL_LIBRARIES=true
+                shift
                 ;;
             -u|--url)
                 PLAY_STORE_URL="$2"
@@ -892,10 +1218,21 @@ main() {
     # Final summary
     print_header "Analysis Complete"
 
-    if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
-        echo -e "${RED}${BOLD}No SDKs detected${NC}"
+    if [ "$LIST_ALL_LIBRARIES" = true ]; then
+        if [ ${#ALL_LIBRARIES[@]} -eq 0 ]; then
+            echo -e "${YELLOW}${BOLD}No native libraries found${NC}"
+        else
+            echo -e "${GREEN}${BOLD}Found ${#ALL_LIBRARIES[@]} native library/libraries${NC}"
+        fi
+        if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+            echo -e "${RED}${BOLD}⚠️  WARNING: Found ${#COMPETITOR_PRODUCTS[@]} competitor product(s)${NC}"
+        fi
     else
-        echo -e "${GREEN}${BOLD}Detected SDKs: ${DETECTED_SDKS[*]}${NC}"
+        if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
+            echo -e "${RED}${BOLD}No SDKs detected${NC}"
+        else
+            echo -e "${GREEN}${BOLD}Detected SDKs: ${DETECTED_SDKS[*]}${NC}"
+        fi
     fi
 
     echo ""

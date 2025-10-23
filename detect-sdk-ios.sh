@@ -36,6 +36,8 @@ OUTPUT_REPORT="sdk-detection-report.txt"
 CLEANUP=true
 VERBOSE=false
 LIST_ALL_FRAMEWORKS=false
+COMPETITORS_FILE="$ORIGINAL_DIR/competitors.txt"
+COMPETITOR_PRODUCTS=()
 
 ################################################################################
 # Helper Functions
@@ -512,11 +514,73 @@ get_app_info() {
     echo "Size:         $app_size"
 }
 
+load_competitors() {
+    if [ ! -f "$COMPETITORS_FILE" ]; then
+        log_verbose "Competitors file not found: $COMPETITORS_FILE"
+        return
+    fi
+
+    log_verbose "Loading competitors from: $COMPETITORS_FILE"
+
+    # Read competitors file, extract names, and create search patterns
+    while IFS= read -r line; do
+        # Skip empty lines and comments
+        if [ -z "$line" ] || [[ "$line" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        # Extract just the company/product name, removing bracketed text
+        local competitor=$(echo "$line" | sed 's/\[.*\]//' | xargs)
+
+        if [ -n "$competitor" ]; then
+            COMPETITOR_NAMES+=("$competitor")
+        fi
+    done < "$COMPETITORS_FILE"
+
+    log_verbose "Loaded ${#COMPETITOR_NAMES[@]} competitors"
+}
+
+check_for_competitors() {
+    COMPETITOR_PRODUCTS=()
+
+    if [ ${#COMPETITOR_NAMES[@]} -eq 0 ]; then
+        return
+    fi
+
+    log_verbose "Checking for competitor products..."
+
+    # Check all frameworks
+    for details in "${ALL_FRAMEWORK_DETAILS[@]}"; do
+        IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size <<< "$details"
+
+        # Check if framework name or bundle ID matches any competitor
+        for competitor in "${COMPETITOR_NAMES[@]}"; do
+            # Create case-insensitive pattern
+            local pattern=$(echo "$competitor" | sed 's/ /.*/g')
+
+            if echo "$fw_name" | grep -iq "$pattern" || echo "$fw_bundle" | grep -iq "$pattern"; then
+                local match_info="$fw_name|$fw_bundle|$fw_version|$fw_build|$fw_size|$competitor"
+                COMPETITOR_PRODUCTS+=("$match_info")
+                log_verbose "Found competitor match: $competitor in $fw_name"
+                break
+            fi
+        done
+    done
+
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        print_warning "Detected ${#COMPETITOR_PRODUCTS[@]} competitor product(s)"
+    fi
+}
+
 list_all_frameworks() {
     print_header "Framework & Library Analysis"
 
     ALL_FRAMEWORKS=()
     ALL_FRAMEWORK_DETAILS=()
+    COMPETITOR_NAMES=()
+
+    # Load competitors list
+    load_competitors
 
     # List all frameworks in Frameworks directory
     if [ -d "$APP_BUNDLE_PATH/Frameworks" ]; then
@@ -575,6 +639,26 @@ list_all_frameworks() {
         echo ""
     fi
 
+    # Check for competitors
+    check_for_competitors
+
+    # Display competitor products if found
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        echo -e "\n${BOLD}${RED}⚠️  COMPETITOR PRODUCTS DETECTED:${NC}\n"
+
+        local idx=1
+        for match_info in "${COMPETITOR_PRODUCTS[@]}"; do
+            IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size competitor <<< "$match_info"
+            echo -e "${RED}${BOLD}$idx. $fw_name${NC}"
+            echo "   Competitor:  $competitor"
+            echo "   Bundle ID:   $fw_bundle"
+            echo "   Version:     $fw_version (build $fw_build)"
+            echo "   Size:        $fw_size"
+            echo ""
+            idx=$((idx + 1))
+        done
+    fi
+
     # List dynamic library dependencies
     echo -e "\n${BOLD}🔗 Dynamic Library Dependencies:${NC}\n"
 
@@ -594,6 +678,9 @@ list_all_frameworks() {
     fi
 
     # Summary
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        echo -e "${RED}${BOLD}⚠️  WARNING: Found ${#COMPETITOR_PRODUCTS[@]} competitor product(s)${NC}"
+    fi
     echo -e "${GREEN}${BOLD}✅ Analysis complete${NC}"
 }
 
@@ -762,16 +849,16 @@ generate_all_frameworks_report() {
     local report_file="$1"
 
     cat > "$report_file" << EOF
-================================================================================
+--------------------------------------------------------------------------------
 iOS APP FRAMEWORK & LIBRARY ANALYSIS REPORT
-================================================================================
+--------------------------------------------------------------------------------
 
 Generated: $(date "+%Y-%m-%d %H:%M:%S")
 Analysis Tool: iOS SDK Detection Script v1.0
 
-================================================================================
+--------------------------------------------------------------------------------
 APP INFORMATION
-================================================================================
+--------------------------------------------------------------------------------
 
 Name:           $APP_INFO_DISPLAY_NAME
 Bundle ID:      $APP_INFO_BUNDLE_ID
@@ -779,9 +866,41 @@ Version:        $APP_INFO_VERSION
 Build:          $APP_INFO_BUILD
 App Size:       $(du -sh "$APP_BUNDLE_PATH" | cut -f1)
 
-================================================================================
+EOF
+
+    # Add competitor detection section if competitors found
+    if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+⚠️  COMPETITOR PRODUCTS DETECTED
+--------------------------------------------------------------------------------
+
+WARNING: This app contains ${#COMPETITOR_PRODUCTS[@]} competitor product(s):
+
+EOF
+        local idx=1
+        for match_info in "${COMPETITOR_PRODUCTS[@]}"; do
+            IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size competitor <<< "$match_info"
+            cat >> "$report_file" << EOF
+$idx. $fw_name
+   Competitor:  $competitor
+   Bundle ID:   $fw_bundle
+   Version:     $fw_version (build $fw_build)
+   Size:        $fw_size
+
+EOF
+            idx=$((idx + 1))
+        done
+
+        cat >> "$report_file" << EOF
+
+EOF
+    fi
+
+    cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
 EMBEDDED FRAMEWORKS
-================================================================================
+--------------------------------------------------------------------------------
 
 EOF
 
@@ -810,9 +929,9 @@ EOF
     fi
 
     cat >> "$report_file" << EOF
-================================================================================
+--------------------------------------------------------------------------------
 DYNAMIC LIBRARY DEPENDENCIES
-================================================================================
+--------------------------------------------------------------------------------
 
 EOF
 
@@ -830,30 +949,35 @@ EOF
 
     cat >> "$report_file" << EOF
 
-================================================================================
+--------------------------------------------------------------------------------
 ANALYSIS METHODS
-================================================================================
+--------------------------------------------------------------------------------
 
 1. Framework Directory Inspection
    - Listed all frameworks in the Frameworks/ directory
    - Extracted version, bundle ID, and size information
 
-2. Binary Dependency Analysis
+2. Competitor Detection
+   - Checked frameworks against known competitors list
+   - Flagged any matches for review
+
+3. Binary Dependency Analysis
    - Used otool -L to list all dynamic library dependencies
    - Shows both system frameworks and embedded libraries
 
-================================================================================
+--------------------------------------------------------------------------------
 TECHNICAL DETAILS
-================================================================================
+--------------------------------------------------------------------------------
 
 Analysis Directory: $WORK_DIR
 App Bundle Path:    $APP_BUNDLE_PATH
 Binary Name:        $APP_BINARY_NAME
 IPA Size:           $(du -sh "$WORK_DIR/app.ipa" 2>/dev/null | cut -f1)
+Competitors File:   $COMPETITORS_FILE
 
-================================================================================
+--------------------------------------------------------------------------------
 END OF REPORT
-================================================================================
+--------------------------------------------------------------------------------
 EOF
 }
 
@@ -861,16 +985,16 @@ generate_sdk_detection_report() {
     local report_file="$1"
 
     cat > "$report_file" << EOF
-================================================================================
+--------------------------------------------------------------------------------
 iOS APP SDK DETECTION REPORT
-================================================================================
+--------------------------------------------------------------------------------
 
 Generated: $(date "+%Y-%m-%d %H:%M:%S")
 Analysis Tool: iOS SDK Detection Script v1.0
 
-================================================================================
+--------------------------------------------------------------------------------
 APP INFORMATION
-================================================================================
+--------------------------------------------------------------------------------
 
 Name:           $APP_INFO_DISPLAY_NAME
 Bundle ID:      $APP_INFO_BUNDLE_ID
@@ -878,9 +1002,9 @@ Version:        $APP_INFO_VERSION
 Build:          $APP_INFO_BUILD
 App Size:       $(du -sh "$APP_BUNDLE_PATH" | cut -f1)
 
-================================================================================
+--------------------------------------------------------------------------------
 SDK DETECTION RESULTS
-================================================================================
+--------------------------------------------------------------------------------
 
 Searched for SDKs: ${SDK_NAMES[*]}
 
@@ -925,9 +1049,9 @@ EOF
 
     cat >> "$report_file" << EOF
 
-================================================================================
+--------------------------------------------------------------------------------
 DETECTION METHODS USED
-================================================================================
+--------------------------------------------------------------------------------
 
 1. Framework Directory Inspection
    - Searched Frameworks/ directory for SDK frameworks
@@ -941,9 +1065,9 @@ DETECTION METHODS USED
    - Searched for files containing SDK names
    - Checked across entire app bundle
 
-================================================================================
+--------------------------------------------------------------------------------
 CONCLUSION
-================================================================================
+--------------------------------------------------------------------------------
 
 EOF
 
@@ -974,17 +1098,17 @@ EOF
     fi
 
     cat >> "$report_file" << EOF
-================================================================================
+--------------------------------------------------------------------------------
 TECHNICAL DETAILS
-================================================================================
+--------------------------------------------------------------------------------
 
 Analysis Directory: $WORK_DIR
 App Bundle Path:    $APP_BUNDLE_PATH
 IPA Size:           $(du -sh "$WORK_DIR/app.ipa" 2>/dev/null | cut -f1)
 
-================================================================================
+--------------------------------------------------------------------------------
 END OF REPORT
-================================================================================
+--------------------------------------------------------------------------------
 EOF
 }
 

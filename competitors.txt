@@ -1,0 +1,151 @@
+ABBYY
+Accusoft Corporation
+Adobe
+airSlate
+Alon Bar
+Andrew Dillon
+Apache
+Apitron
+Appian Corporation
+Apple
+Appligent Document Solutions
+Apryse Software Inc. [was PDFTron]
+Artifex (by ePapyrus)
+Ashish Kulkarni
+Aspose Pty Ltd
+Asprise
+Avanquest Software
+Azeus Systems Limited
+Azure
+Base64.ai
+Behavior, LLC.
+Bizagi GROUP CORP
+Bluebeam
+Boldijar Paul
+Bonitasoft, S.A.
+Boomi, LP.
+Box20 Media
+Brendan Dahl
+ByteScout (by Artifex)
+Cambio Corp
+ceTe Software
+CIB
+CKSource
+Claranova
+ComPDFKit
+ConvertAPI, UAB
+Datalogics, Inc.
+deepdoctection
+Developer Express Inc.
+Diego Muracciole
+Dimuthu Wannipurage
+Dmitry Borodin
+Documenso, Inc.
+Docusign Inc.
+Dynamsoft
+Eden
+empira Software GmbH
+Encodian Solutions Ltd.
+ePapyrus
+Essential Objects, Inc.
+EVO PDF Software
+Flipsnack
+Foxit
+Gal Kahana
+Gaurav Koley
+GemBox Ltd.
+Gnostice Information Technologies
+Google
+Gravic, Inc. (Remark)
+HelloSign
+HiQPdf Software
+IBM
+iDiTect
+Innovatics Inc.
+Iron Software LLC
+IronPDF
+iText (by Apryse)
+James R. Barlow.
+Jotform
+jsReport
+Julien Neuhart
+Kdan
+Keyfactor Inc.
+Kissflow Inc.
+KO GmbH
+Kofax
+Kurt Yung
+Kyohei Fukuda (pdfme, Inc.)
+LEADTOOLS (by Apryse)
+LightPDF
+Litera
+Lunaweb GmbH (CloudConvert)
+Marcin Ziąbek CodeFlint
+Mathieu Fenniak
+Mescius inc. (was GrapeCity)
+Microsoft
+Miratech Workflow Automation
+Mozilla
+MuPDF
+ngx-extended-pdf-viewer
+Nintex
+Nitro Software, Inc.
+NReco
+OCR Space
+Oliver
+Olmo Gallegos
+Parallax Agency Ltd
+PDF Butler
+PDF Technologies
+PDF Tools AG
+PDF-XChange Co Ltd.
+PDF.co (by Artifex)
+Pdfcrowd s.r.o.
+PDFfiller
+PDFix
+PDFKit
+PDFlib GmbH (by Apryse)
+Pegasystems, Inc.
+Philip Hutchison
+podofo
+PrimeKey Solutions AB
+Process Street, Inc.
+ProcessMaker inc.
+Procurify Technologies Inc.
+Progress
+Qoppa Software by Apryse
+RadaeePDF
+RadPDF
+Rajat Mittal
+React PDF Viewer
+Red Software
+SASU PDFShift
+SautinSoft
+SelectPDF
+ServiceNow, Inc.
+Setasign GmbH & Co. KG
+Signeasy
+Simple PDF
+Smallpdf Gmbh
+Snowbound
+Softland
+Stefano Chizzolini
+Stephan Rauh
+Stirling-PDF, Inc.
+SyncFusion, Inc.
+TallComponents BV.
+Tech Primate
+Tej Pratap Singh
+Text Control GmbH
+Tiny Technologies Inc.
+TinyWow
+Tiptap GmbH
+Tracker Software Products  (1 for All Software GmbH)
+Vadym Yatsyuk
+Vanilla.PDF Labs
+Verciltech LTD (PDFGate)
+Viscom Softwares.
+Visual Integrity
+WebSuperGoo
+Windingwind
+XFINIUM Software
