@@ -1,0 +1,267 @@
+# Android & iOS Library Information Database
+# Format: library_name|description|vendor/source
+# This database helps identify what common libraries do in mobile apps
+# Last updated: 2025-10-23
+
+# ==============================================================================
+# REACT NATIVE CORE LIBRARIES (Facebook/Meta)
+# ==============================================================================
+
+libreactnativejni.so|React Native core JNI bridge - enables JavaScript to native communication|Facebook/Meta
+libhermes.so|Hermes JavaScript engine - optimized JS engine for React Native with faster startup|Facebook/Meta
+libhermes_executor.so|JavaScript executor implementation for the Hermes engine|Facebook/Meta
+libhermesinstancejni.so|JNI bindings for managing Hermes JavaScript engine instances|Facebook/Meta
+libjsi.so|JavaScript Interface (JSI) - React Native's new architecture for direct JS-to-native calls|Facebook/Meta
+libjscexecutor.so|JavaScriptCore executor - alternative JS engine for React Native|Facebook/Meta
+libjscinstance.so|JavaScriptCore engine instance manager|Facebook/Meta
+libfbjni.so|Facebook JNI helpers - utilities for C++ to Java interop in native code|Facebook/Meta
+libfolly_runtime.so|Facebook Folly C++ library - high-performance C++ utility components|Facebook/Meta
+libyoga.so|Yoga flexbox layout engine - CSS flexbox implementation used by React Native|Facebook/Meta
+
+# React Native Rendering & UI
+libfabricjni.so|React Native Fabric renderer - new concurrent rendering architecture|Facebook/Meta
+libreact_render_core.so|Core rendering infrastructure for React Native UI|Facebook/Meta
+libreact_render_debug.so|Debug utilities for React Native renderer|Facebook/Meta
+libreact_render_graphics.so|Graphics rendering primitives for React Native|Facebook/Meta
+libreact_render_imagemanager.so|Image loading, caching, and rendering for React Native|Facebook/Meta
+libreact_render_mapbuffer.so|Memory-efficient serialization for cross-process communication|Facebook/Meta
+libreact_render_componentregistry.so|Component registration and management system|Facebook/Meta
+librrc_view.so|React Native Fabric view components|Facebook/Meta
+librrc_image.so|Image component implementation for React Native Fabric|Facebook/Meta
+librrc_legacyviewmanagerinterop.so|Compatibility bridge between old and new React Native architecture|Facebook/Meta
+libuimanagerjni.so|UI manager for React Native component tree and layout|Facebook/Meta
+
+# React Native Module System
+libreact_nativemodule_core.so|Native module infrastructure - allows JavaScript to call native code|Facebook/Meta
+libreact_newarchdefaults.so|React Native new architecture default implementations|Facebook/Meta
+libturbomodulejsijni.so|TurboModules system - faster native module calls using JSI|Facebook/Meta
+libreact_codegen_rncore.so|Code-generated React Native core components|Facebook/Meta
+libreact_cxxreactpackage.so|C++ package manager for React Native modules|Facebook/Meta
+librninstance.so|React Native runtime instance manager|Facebook/Meta
+libruntimeexecutor.so|JavaScript runtime executor interface|Facebook/Meta
+
+# React Native Utilities
+libreact_utils.so|Common utilities shared across React Native|Facebook/Meta
+libreact_debug.so|Debug utilities and helpers for React Native development|Facebook/Meta
+libreact_featureflags.so|Feature flag system for gradual rollouts|Facebook/Meta
+libreact_featureflagsjni.so|JNI bindings for React Native feature flags|Facebook/Meta
+libreact_devsupportjni.so|Development support tools - debugging, hot reload, dev menu|Facebook/Meta
+libreactperfloggerjni.so|Performance logging and profiling for React Native|Facebook/Meta
+libreactnativeblob.so|Binary large object (blob) support for files and data|Facebook/Meta
+libmapbufferjni.so|JNI bindings for memory-mapped buffer serialization|Facebook/Meta
+
+# ==============================================================================
+# FIREBASE / GOOGLE SERVICES
+# ==============================================================================
+
+libcrashlytics.so|Firebase Crashlytics - crash reporting and analytics SDK|Google
+libcrashlytics-common.so|Firebase Crashlytics common utilities|Google
+libcrashlytics-handler.so|Native crash handler for capturing app crashes|Google
+libcrashlytics-trampoline.so|Signal handler trampoline for crash reporting|Google
+
+# ==============================================================================
+# IMAGE PROCESSING & MEDIA
+# ==============================================================================
+
+libimagepipeline.so|Fresco image loading pipeline - caching and image management|Facebook/Meta
+libgifimage.so|GIF image decoding and animation rendering library|Various
+libstatic-webp.so|WebP image format support - modern compressed images|Google
+libnative-imagetranscoder.so|Image format transcoding between JPEG, PNG, WebP|Various
+libnative-filters.so|Image filtering and effects library|Various
+libimage_processing_util_jni.so|JNI utilities for image processing operations|Various
+libwebp.so|WebP image codec library|Google
+libjpeg.so|JPEG image codec library|IJG/Various
+libpng.so|PNG image codec library|PNG Development Group
+
+# ==============================================================================
+# PDF LIBRARIES
+# ==============================================================================
+
+libmodpdfium.so|Modified PDFium - PDF rendering engine (forked from Chromium)|Google (forked)
+libjniPdfium.so|JNI wrapper for PDFium PDF rendering functionality|Various
+libmodpng.so|Modified PNG codec used by PDFium|Various
+libmodft2.so|Modified FreeType 2 font rendering used by PDFium|Various
+libpdfium.so|PDFium PDF rendering engine from Chromium project|Google
+
+# ==============================================================================
+# CAMERA & VISION
+# ==============================================================================
+
+libVisionCamera.so|React Native Vision Camera - camera access and image capture|Various
+libmlkit_barcode.so|Google ML Kit barcode scanning|Google
+libmlkit_face.so|Google ML Kit face detection|Google
+libmlkit_text.so|Google ML Kit text recognition (OCR)|Google
+
+# ==============================================================================
+# DATABASE & STORAGE
+# ==============================================================================
+
+librealm.so|Realm mobile database - object-oriented mobile database engine|MongoDB/Realm
+libsqlcipher.so|SQLCipher - encrypted SQLite database|Zetetic
+libsqlite.so|SQLite database engine|SQLite Consortium
+
+# ==============================================================================
+# NETWORKING & HTTP
+# ==============================================================================
+
+libokhttp.so|OkHttp HTTP client for Android|Square
+libcurl.so|cURL library for HTTP/HTTPS requests|cURL Project
+libssl.so|OpenSSL cryptographic library|OpenSSL Project
+libcrypto.so|OpenSSL cryptographic functions|OpenSSL Project
+
+# ==============================================================================
+# DEBUGGING & PROFILING
+# ==============================================================================
+
+libjsinspector.so|JavaScript inspector for React Native debugging|Facebook/Meta
+libjsijniprofiler.so|JavaScript profiler JNI interface|Facebook/Meta
+libglog.so|Google Logging Library for C++|Google
+libsentry.so|Sentry crash reporting and error tracking|Sentry
+libsentry-native.so|Sentry native SDK for crash reporting|Sentry
+
+# ==============================================================================
+# iOS FRAMEWORKS
+# ==============================================================================
+
+PSPDFKit.framework|PSPDFKit PDF SDK for iOS - comprehensive PDF viewing and annotation|Nutrient (formerly PSPDFKit)
+Nutrient.framework|Nutrient PDF SDK for iOS - comprehensive PDF viewing and annotation|Nutrient
+FirebaseAnalytics.framework|Firebase Analytics for iOS - user behavior tracking|Google
+FirebaseCore.framework|Firebase Core - base Firebase functionality for iOS|Google
+FirebaseMessaging.framework|Firebase Cloud Messaging - push notifications for iOS|Google
+FirebaseAuth.framework|Firebase Authentication for iOS|Google
+GoogleSignIn.framework|Google Sign-In SDK for iOS|Google
+FBSDKCoreKit.framework|Facebook Core SDK - base Facebook functionality|Facebook/Meta
+FBSDKLoginKit.framework|Facebook Login SDK for iOS|Facebook/Meta
+FBSDKShareKit.framework|Facebook Share SDK for iOS|Facebook/Meta
+Stripe.framework|Stripe payment processing SDK for iOS|Stripe
+Alamofire.framework|Alamofire HTTP networking library for Swift|Alamofire Software Foundation
+AFNetworking.framework|AFNetworking HTTP networking library for Objective-C|AFNetworking
+SDWebImage.framework|SDWebImage asynchronous image downloader with cache|SDWebImage
+Kingfisher.framework|Kingfisher Swift library for downloading and caching images|Wei Wang
+Realm.framework|Realm mobile database for iOS|MongoDB
+RealmSwift.framework|Realm Swift bindings for iOS|MongoDB
+SwiftProtobuf.framework|Swift Protocol Buffers implementation|Apple/Google
+gRPC.framework|gRPC framework for iOS - RPC framework|Google
+Crashlytics.framework|Crashlytics crash reporting (legacy, now part of Firebase)|Google
+Fabric.framework|Fabric crash reporting and analytics (legacy)|Google
+Sentry.framework|Sentry error tracking and monitoring for iOS|Sentry
+Amplitude.framework|Amplitude analytics SDK for iOS|Amplitude
+Mixpanel.framework|Mixpanel analytics SDK for iOS|Mixpanel
+Branch.framework|Branch deep linking and attribution SDK for iOS|Branch
+AppsFlyer.framework|AppsFlyer mobile attribution and marketing analytics|AppsFlyer
+Adjust.framework|Adjust mobile measurement and fraud prevention|Adjust
+Lottie.framework|Lottie animation library for iOS|Airbnb
+SnapKit.framework|SnapKit Auto Layout DSL for iOS|SnapKit Team
+Charts.framework|Charts beautiful charts library for iOS|Daniel Cohen Gindi
+Mapbox.framework|Mapbox maps and location SDK for iOS|Mapbox
+GoogleMaps.framework|Google Maps SDK for iOS|Google
+
+# ==============================================================================
+# STANDARD & SYSTEM LIBRARIES
+# ==============================================================================
+
+libc++_shared.so|LLVM C++ standard library (shared version)|LLVM Project
+libstdc++.so|GNU C++ standard library|GNU Project
+libz.so|zlib compression library|zlib Project
+libm.so|Math library|System
+libc.so|C standard library|System
+
+# ==============================================================================
+# EXPO FRAMEWORK
+# ==============================================================================
+
+libexpo-modules-core.so|Expo modules core infrastructure for React Native|Expo
+libexpo.so|Expo framework core|Expo
+
+# ==============================================================================
+# ANALYTICS & MONITORING
+# ==============================================================================
+
+libfirebase_analytics.so|Firebase Analytics for user behavior tracking|Google
+libfirebase_messaging.so|Firebase Cloud Messaging (push notifications)|Google
+libfirebase_auth.so|Firebase Authentication|Google
+libamplitude.so|Amplitude analytics SDK|Amplitude
+libmixpanel.so|Mixpanel analytics SDK|Mixpanel
+libsegment.so|Segment analytics platform|Twilio/Segment
+
+# ==============================================================================
+# PAYMENT & COMMERCE
+# ==============================================================================
+
+libstripe.so|Stripe payment processing SDK|Stripe
+libpaypal.so|PayPal payment SDK|PayPal
+libsquare.so|Square payment processing|Square
+libbraintree.so|Braintree payment gateway|PayPal
+
+# ==============================================================================
+# SOCIAL MEDIA & SHARING
+# ==============================================================================
+
+libfacebook.so|Facebook SDK for social integration|Facebook/Meta
+libtwitter.so|Twitter SDK|Twitter/X
+libinstagram.so|Instagram integration SDK|Facebook/Meta
+
+# ==============================================================================
+# MAPPING & LOCATION
+# ==============================================================================
+
+libmapbox.so|Mapbox maps and navigation SDK|Mapbox
+libgoogle_maps.so|Google Maps SDK|Google
+
+# ==============================================================================
+# VIDEO & AUDIO
+# ==============================================================================
+
+libvideo.so|Video playback library|Various
+libexoplayer.so|ExoPlayer media player|Google
+libffmpeg.so|FFmpeg multimedia framework|FFmpeg Project
+libopenh264.so|OpenH264 video codec|Cisco
+
+# ==============================================================================
+# UNITY & GAME ENGINES
+# ==============================================================================
+
+libunity.so|Unity game engine runtime|Unity Technologies
+libunreal.so|Unreal Engine runtime|Epic Games
+libcocos2d.so|Cocos2d game engine|Cocos
+
+# ==============================================================================
+# iOS FRAMEWORKS
+# ==============================================================================
+
+PSPDFKit.framework|PDF SDK for viewing, annotating, editing PDFs with forms support|PSPDFKit (now Nutrient)
+Nutrient.framework|PDF SDK for viewing, annotating, editing PDFs (rebranded from PSPDFKit)|Nutrient
+Firebase.framework|Firebase services SDK bundle|Google
+Realm.framework|Realm mobile database|MongoDB/Realm
+Alamofire.framework|Elegant HTTP networking library for Swift/iOS|Alamofire
+SDWebImage.framework|Asynchronous image loading and caching|SDWebImage
+AFNetworking.framework|Networking library for iOS/macOS|AFNetworking
+Kingfisher.framework|Swift image downloading and caching|Kingfisher
+SnapKit.framework|Swift Auto Layout DSL|SnapKit
+RxSwift.framework|Reactive programming library|ReactiveX
+Charts.framework|Chart and graph library|Charts
+Lottie.framework|Animation library using Adobe After Effects|Airbnb
+SwiftyJSON.framework|JSON parsing library|SwiftyJSON
+Stripe.framework|Stripe payment processing|Stripe
+GoogleMaps.framework|Google Maps SDK for iOS|Google
+FBSDKCoreKit.framework|Facebook SDK core|Facebook/Meta
+Firebase/Analytics.framework|Firebase Analytics|Google
+Firebase/Crashlytics.framework|Firebase Crashlytics|Google
+
+# ==============================================================================
+# COMMON REACT NATIVE CODE-GENERATED LIBRARIES
+# ==============================================================================
+
+libreact_codegen_safeareacontext.so|React Native Safe Area Context - handles notches and screen insets|Various
+libreact_codegen_rnscreens.so|React Native Screens - native navigation primitives|Software Mansion
+libreact_codegen_rngesture.so|React Native Gesture Handler|Software Mansion
+libreact_codegen_rnreanimated.so|React Native Reanimated - high-performance animations|Software Mansion
+libreact_codegen_rnsvg.so|React Native SVG - SVG rendering support|Various
+
+# ==============================================================================
+# NOTES
+# ==============================================================================
+# - Library versions can be found in APK's META-INF directory
+# - Not all libraries will have descriptions (custom/proprietary libs)
+# - .so files are native libraries (C/C++)
+# - .framework files are iOS bundles containing code and resources

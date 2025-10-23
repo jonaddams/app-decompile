@@ -514,6 +514,74 @@ get_app_info() {
     echo "Size:         $app_size"
 }
 
+# Library information database functions
+load_library_info() {
+    declare -gA LIBRARY_INFO_DESC
+    declare -gA LIBRARY_INFO_VENDOR
+
+    local library_info_file="$SCRIPT_DIR/library-info.txt"
+
+    if [ ! -f "$library_info_file" ]; then
+        log_verbose "Library info file not found: $library_info_file"
+        return
+    fi
+
+    log_verbose "Loading library info from: $library_info_file"
+
+    while IFS='|' read -r lib_name description vendor; do
+        # Skip empty lines and comments
+        if [ -z "$lib_name" ] || [[ "$lib_name" =~ ^[[:space:]]*# ]]; then
+            continue
+        fi
+
+        # Store description and vendor in associative arrays
+        LIBRARY_INFO_DESC["$lib_name"]="$description"
+        LIBRARY_INFO_VENDOR["$lib_name"]="$vendor"
+    done < "$library_info_file"
+
+    log_verbose "Loaded ${#LIBRARY_INFO_DESC[@]} library descriptions"
+}
+
+get_library_description() {
+    local lib_name="$1"
+
+    # Try exact match first
+    if [ -n "${LIBRARY_INFO_DESC[$lib_name]}" ]; then
+        echo "${LIBRARY_INFO_DESC[$lib_name]}"
+        return
+    fi
+
+    # Try without .framework extension
+    local base_name="${lib_name%.framework}"
+    if [ -n "${LIBRARY_INFO_DESC[$base_name]}" ]; then
+        echo "${LIBRARY_INFO_DESC[$base_name]}"
+        return
+    fi
+
+    # No match found
+    echo ""
+}
+
+get_library_vendor() {
+    local lib_name="$1"
+
+    # Try exact match first
+    if [ -n "${LIBRARY_INFO_VENDOR[$lib_name]}" ]; then
+        echo "${LIBRARY_INFO_VENDOR[$lib_name]}"
+        return
+    fi
+
+    # Try without .framework extension
+    local base_name="${lib_name%.framework}"
+    if [ -n "${LIBRARY_INFO_VENDOR[$base_name]}" ]; then
+        echo "${LIBRARY_INFO_VENDOR[$base_name]}"
+        return
+    fi
+
+    # No match found
+    echo ""
+}
+
 load_competitors() {
     if [ ! -f "$COMPETITORS_FILE" ]; then
         log_verbose "Competitors file not found: $COMPETITORS_FILE"
@@ -551,7 +619,7 @@ check_for_competitors() {
 
     # Check all frameworks
     for details in "${ALL_FRAMEWORK_DETAILS[@]}"; do
-        IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size <<< "$details"
+        IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size description vendor <<< "$details"
 
         # Check if framework name or bundle ID matches any competitor
         for competitor in "${COMPETITOR_NAMES[@]}"; do
@@ -579,8 +647,9 @@ list_all_frameworks() {
     ALL_FRAMEWORK_DETAILS=()
     COMPETITOR_NAMES=()
 
-    # Load competitors list
+    # Load competitors list and library info
     load_competitors
+    load_library_info
 
     # List all frameworks in Frameworks directory
     if [ -d "$APP_BUNDLE_PATH/Frameworks" ]; then
@@ -597,6 +666,20 @@ list_all_frameworks() {
 
             echo -e "${CYAN}${BOLD}$framework_count. $framework${NC}"
 
+            # Get library description and vendor
+            local description=$(get_library_description "$framework")
+            local vendor=$(get_library_vendor "$framework")
+
+            # Show description if available
+            if [ -n "$description" ]; then
+                echo "   Description: $description"
+            fi
+
+            # Show vendor if available
+            if [ -n "$vendor" ]; then
+                echo "   Vendor:      $vendor"
+            fi
+
             local fw_path="$APP_BUNDLE_PATH/Frameworks/$framework"
             local fw_details=""
 
@@ -606,8 +689,8 @@ list_all_frameworks() {
                 local fw_version=$(plutil -extract CFBundleShortVersionString raw "$fw_path/Info.plist" 2>/dev/null || echo "N/A")
                 local fw_build=$(plutil -extract CFBundleVersion raw "$fw_path/Info.plist" 2>/dev/null || echo "N/A")
 
-                echo "   Bundle ID: $fw_bundle_id"
-                echo "   Version:   $fw_version (build $fw_build)"
+                echo "   Bundle ID:   $fw_bundle_id"
+                echo "   Version:     $fw_version (build $fw_build)"
 
                 fw_details="$framework|$fw_bundle_id|$fw_version|$fw_build"
             else
@@ -617,11 +700,14 @@ list_all_frameworks() {
             # Get framework size
             if [ -d "$fw_path" ]; then
                 local fw_size=$(du -sh "$fw_path" 2>/dev/null | cut -f1)
-                echo "   Size:      $fw_size"
+                echo "   Size:        $fw_size"
                 fw_details="$fw_details|$fw_size"
             else
                 fw_details="$fw_details|N/A"
             fi
+
+            # Add description and vendor to details
+            fw_details="$fw_details|$description|$vendor"
 
             ALL_FRAMEWORK_DETAILS+=("$fw_details")
             echo ""
@@ -916,12 +1002,20 @@ Found ${#ALL_FRAMEWORKS[@]} embedded framework(s):
 EOF
         local idx=1
         for details in "${ALL_FRAMEWORK_DETAILS[@]}"; do
-            IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size <<< "$details"
+            IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size description vendor <<< "$details"
             cat >> "$report_file" << EOF
 $idx. $fw_name
-   Bundle ID: $fw_bundle
-   Version:   $fw_version (build $fw_build)
-   Size:      $fw_size
+EOF
+            if [ -n "$description" ]; then
+                echo "   Description: $description" >> "$report_file"
+            fi
+            if [ -n "$vendor" ]; then
+                echo "   Vendor:      $vendor" >> "$report_file"
+            fi
+            cat >> "$report_file" << EOF
+   Bundle ID:   $fw_bundle
+   Version:     $fw_version (build $fw_build)
+   Size:        $fw_size
 
 EOF
             idx=$((idx + 1))

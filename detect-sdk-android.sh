@@ -346,6 +346,99 @@ download_apk_device() {
     return 1
 }
 
+load_library_info() {
+    LIBRARY_INFO_FILE="$ORIGINAL_DIR/library-info.txt"
+
+    if [ ! -f "$LIBRARY_INFO_FILE" ]; then
+        log_verbose "Library info database not found: $LIBRARY_INFO_FILE"
+        return 1
+    fi
+
+    log_verbose "Loaded library information database"
+    return 0
+}
+
+get_library_description() {
+    local lib_name="$1"
+
+    if [ ! -f "$LIBRARY_INFO_FILE" ]; then
+        echo ""
+        return
+    fi
+
+    # Search for library in database (case-insensitive)
+    local result=$(grep -i "^${lib_name}|" "$LIBRARY_INFO_FILE" | head -1)
+
+    if [ -n "$result" ]; then
+        # Extract description (second field)
+        echo "$result" | cut -d'|' -f2
+    else
+        echo ""
+    fi
+}
+
+get_library_vendor() {
+    local lib_name="$1"
+
+    if [ ! -f "$LIBRARY_INFO_FILE" ]; then
+        echo ""
+        return
+    fi
+
+    # Search for library in database (case-insensitive)
+    local result=$(grep -i "^${lib_name}|" "$LIBRARY_INFO_FILE" | head -1)
+
+    if [ -n "$result" ]; then
+        # Extract vendor (third field)
+        echo "$result" | cut -d'|' -f3
+    else
+        echo ""
+    fi
+}
+
+extract_library_versions() {
+    local meta_inf_dir="$APK_RAW_PATH/META-INF"
+
+    if [ ! -d "$meta_inf_dir" ]; then
+        log_verbose "META-INF directory not found"
+        return
+    fi
+
+    log_verbose "Extracting library versions from META-INF..."
+
+    # Find all .version files
+    LIBRARY_VERSIONS=()
+    while IFS= read -r version_file; do
+        if [ -f "$version_file" ]; then
+            local lib_name=$(basename "$version_file" .version)
+            local version=$(cat "$version_file" 2>/dev/null | tr -d '\n\r')
+
+            if [ -n "$version" ]; then
+                LIBRARY_VERSIONS+=("$lib_name|$version")
+            fi
+        fi
+    done < <(find "$meta_inf_dir" -name "*.version" 2>/dev/null)
+
+    log_verbose "Found ${#LIBRARY_VERSIONS[@]} library versions"
+}
+
+get_library_version() {
+    local search_name="$1"
+
+    for version_entry in "${LIBRARY_VERSIONS[@]}"; do
+        local lib_name=$(echo "$version_entry" | cut -d'|' -f1)
+        local version=$(echo "$version_entry" | cut -d'|' -f2)
+
+        # Check if the library name matches (case-insensitive partial match)
+        if echo "$lib_name" | grep -iq "$search_name"; then
+            echo "$version"
+            return
+        fi
+    done
+
+    echo ""
+}
+
 process_xapk() {
     local xapk_file="$1"
     local output_apk="$2"
@@ -693,7 +786,7 @@ check_for_competitors() {
 
     # Check all libraries
     for details in "${ALL_LIBRARY_DETAILS[@]}"; do
-        IFS='|' read -r lib_name lib_path lib_size <<< "$details"
+        IFS='|' read -r lib_name lib_path lib_size description vendor version <<< "$details"
 
         # Check if library name or path matches any competitor
         for competitor in "${COMPETITOR_NAMES[@]}"; do
@@ -721,8 +814,12 @@ list_all_libraries() {
     ALL_LIBRARY_DETAILS=()
     COMPETITOR_NAMES=()
 
-    # Load competitors list
+    # Load competitors list and library info database
     load_competitors
+    load_library_info
+
+    # Extract library versions from META-INF
+    extract_library_versions
 
     # List all native libraries
     if [ -d "$APK_RAW_PATH/lib" ]; then
@@ -741,11 +838,32 @@ list_all_libraries() {
 
             ALL_LIBRARIES+=("$lib_name")
 
+            # Get library description, vendor, and version
+            local description=$(get_library_description "$lib_name")
+            local vendor=$(get_library_vendor "$lib_name")
+            local version=$(get_library_version "$lib_name")
+
             echo -e "${CYAN}${BOLD}$lib_count. $lib_name${NC}"
+
+            # Show description if available
+            if [ -n "$description" ]; then
+                echo "   Description:  $description"
+            fi
+
+            # Show vendor if available
+            if [ -n "$vendor" ]; then
+                echo "   Vendor:       $vendor"
+            fi
+
+            # Show version if available
+            if [ -n "$version" ]; then
+                echo "   Version:      $version"
+            fi
+
             echo "   Architecture: $lib_arch"
             echo "   Size:         $lib_size"
 
-            local lib_details="$lib_name|$lib_file|$lib_size"
+            local lib_details="$lib_name|$lib_file|$lib_size|$description|$vendor|$version"
             ALL_LIBRARY_DETAILS+=("$lib_details")
             echo ""
         done < <(find "$APK_RAW_PATH/lib" -type f -name "*.so" 2>/dev/null)
@@ -1024,14 +1142,23 @@ Found ${#ALL_LIBRARIES[@]} native library/libraries:
 EOF
         local idx=1
         for details in "${ALL_LIBRARY_DETAILS[@]}"; do
-            IFS='|' read -r lib_name lib_path lib_size <<< "$details"
+            IFS='|' read -r lib_name lib_path lib_size description vendor version <<< "$details"
             local lib_arch=$(basename $(dirname "$lib_path"))
             cat >> "$report_file" << EOF
 $idx. $lib_name
    Architecture: $lib_arch
    Size:         $lib_size
-
 EOF
+            if [ -n "$description" ]; then
+                echo "   Description:  $description" >> "$report_file"
+            fi
+            if [ -n "$vendor" ]; then
+                echo "   Vendor:       $vendor" >> "$report_file"
+            fi
+            if [ -n "$version" ]; then
+                echo "   Version:      $version" >> "$report_file"
+            fi
+            echo "" >> "$report_file"
             idx=$((idx + 1))
         done
     fi
