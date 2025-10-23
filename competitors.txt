@@ -28,6 +28,7 @@ Box20 Media
 Brendan Dahl
 ByteScout (by Artifex)
 Cambio Corp
+PDFium
 ceTe Software
 CIB
 CKSource

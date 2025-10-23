@@ -48,6 +48,9 @@ chmod +x detect-sdk-android.sh
 # Analyze existing APK file
 ./detect-sdk-android.sh -s pspdfkit -s nutrient -f /path/to/app.apk
 
+# Analyze XAPK file (automatically extracts and merges split APKs)
+./detect-sdk-android.sh -s pspdfkit -s nutrient -f app.xapk
+
 # Or by package name (attempts auto-download)
 ./detect-sdk-android.sh -s pspdfkit -p com.example.app
 
@@ -56,6 +59,7 @@ chmod +x detect-sdk-android.sh
 ```
 
 **First time?** The script automatically installs Java and apktool!
+**XAPK Support:** Download from APKPure and the script handles extraction automatically!
 
 ### Check Results
 
@@ -68,9 +72,10 @@ Reports are automatically generated with unique names:
 
 | Feature | iOS | Android |
 |---------|-----|---------|
-| **Download Source** | App Store (requires Apple ID) | APK files from multiple sources |
+| **Download Source** | App Store (requires Apple ID) | APK/XAPK from multiple sources |
 | **Auto-Download** | ✅ Yes (via ipatool) | ⚠️ Partial (APKPure) |
 | **Manual Download** | ❌ Difficult | ✅ Easy (APKPure, APKMirror) |
+| **XAPK Support** | N/A | ✅ Automatic extraction & merging |
 | **Device Extract** | ❌ Not supported | ✅ Yes (via ADB) |
 | **SDK Detection** | Framework bundles | Native libs + Java classes |
 | **Obfuscation** | Rare | Common (ProGuard/R8) |
@@ -78,7 +83,7 @@ Reports are automatically generated with unique names:
 
 **Recommendation**:
 - **iOS**: Use App Store URL (easiest)
-- **Android**: Use existing APK file or download manually (most reliable)
+- **Android**: Download XAPK from APKPure - automatic extraction! (most reliable)
 
 ## 💡 Smart URL Handling
 
@@ -324,11 +329,15 @@ done
 **Last Updated**: 2025-10-15
 
 ### Recent Changes
+- ✅ **XAPK automatic extraction and merging** (Android)
 - ✅ Automatic report naming with bundle ID and timestamp
 - ✅ Multiple SDK detection support
+- ✅ Competitor product detection from configurable list
+- ✅ List all frameworks/libraries mode (no SDK name required)
 - ✅ Color-coded output for better readability
 - ✅ Comprehensive error handling
 - ✅ Report persistence after cleanup
+- ✅ Spreadsheet-friendly report format (no formula conflicts)
 
 ## 📄 Files
 

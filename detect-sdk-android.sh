@@ -98,7 +98,8 @@ ${BOLD}OPTIONS:${NC}
     -p, --package <id>        Package name (bundle identifier)
                               Example: com.example.app
 
-    -f, --file <path>         Path to existing APK file to analyze
+    -f, --file <path>         Path to existing APK or XAPK file to analyze
+                              (XAPK files are automatically extracted and merged)
 
     -o, --output <file>       Output report file (default: auto-generated with app name)
 
@@ -345,19 +346,131 @@ download_apk_device() {
     return 1
 }
 
+process_xapk() {
+    local xapk_file="$1"
+    local output_apk="$2"
+
+    log_verbose "Processing XAPK file: $xapk_file"
+
+    # Create temporary directory for XAPK extraction
+    local xapk_temp="$WORK_DIR/xapk-temp"
+    mkdir -p "$xapk_temp"
+
+    # Extract XAPK (it's just a ZIP file)
+    log_verbose "Extracting XAPK..."
+    if ! unzip -q "$xapk_file" -d "$xapk_temp" 2>/dev/null; then
+        print_error "Failed to extract XAPK file"
+        rm -rf "$xapk_temp"
+        return 1
+    fi
+
+    # Find the base APK
+    local base_apk=$(find "$xapk_temp" -name "*.apk" -type f ! -name "config.*" | head -1)
+    if [ -z "$base_apk" ]; then
+        print_error "No base APK found in XAPK"
+        rm -rf "$xapk_temp"
+        return 1
+    fi
+
+    log_verbose "Found base APK: $(basename $base_apk)"
+
+    # Create merge directory
+    local merge_dir="$WORK_DIR/merged-apk"
+    rm -rf "$merge_dir"
+    mkdir -p "$merge_dir"
+
+    # Extract base APK
+    log_verbose "Extracting base APK..."
+    if ! unzip -q "$base_apk" -d "$merge_dir" 2>/dev/null; then
+        print_error "Failed to extract base APK"
+        rm -rf "$xapk_temp" "$merge_dir"
+        return 1
+    fi
+
+    # Find and merge architecture-specific APKs (contains native libraries)
+    local arch_apks=$(find "$xapk_temp" -name "config.arm*.apk" -o -name "config.x86*.apk" 2>/dev/null)
+
+    if [ -n "$arch_apks" ]; then
+        print_info "Merging architecture-specific libraries..."
+        echo "$arch_apks" | while IFS= read -r arch_apk; do
+            if [ -n "$arch_apk" ] && [ -f "$arch_apk" ]; then
+                log_verbose "Merging: $(basename $arch_apk)"
+                unzip -o -q "$arch_apk" -d "$merge_dir" 2>/dev/null || true
+            fi
+        done
+        print_success "Architecture libraries merged"
+    fi
+
+    # Find and merge language/resource config APKs
+    local config_apks=$(find "$xapk_temp" -name "config.*.apk" ! -name "config.arm*" ! -name "config.x86*" 2>/dev/null)
+    if [ -n "$config_apks" ]; then
+        log_verbose "Merging additional config APKs..."
+        echo "$config_apks" | while IFS= read -r config_apk; do
+            if [ -n "$config_apk" ] && [ -f "$config_apk" ]; then
+                unzip -o -q "$config_apk" -d "$merge_dir" 2>/dev/null || true
+            fi
+        done
+    fi
+
+    # Repackage as APK
+    log_verbose "Repackaging merged APK..."
+    local absolute_output="$WORK_DIR/$output_apk"
+    cd "$merge_dir"
+    if ! zip -r -q "$absolute_output" . 2>/dev/null; then
+        print_error "Failed to repackage APK"
+        cd "$WORK_DIR"
+        rm -rf "$xapk_temp" "$merge_dir"
+        return 1
+    fi
+
+    cd "$WORK_DIR"
+
+    # Cleanup
+    rm -rf "$xapk_temp" "$merge_dir"
+
+    if [ ! -f "$output_apk" ]; then
+        print_error "Failed to create merged APK"
+        return 1
+    fi
+
+    local merged_size=$(du -h "$output_apk" 2>/dev/null | cut -f1)
+    log_verbose "Merged APK size: $merged_size"
+
+    return 0
+}
+
 get_apk() {
     print_header "Obtaining APK"
 
-    mkdir -p "$WORK_DIR"
-    cd "$WORK_DIR"
-
-    local apk_file="app.apk"
-
     # Option 1: User provided APK file
     if [ -n "$APK_FILE" ]; then
+        # Convert to absolute path before changing directory
+        if [[ "$APK_FILE" != /* ]]; then
+            APK_FILE="$ORIGINAL_DIR/$APK_FILE"
+        fi
+
         if [ ! -f "$APK_FILE" ]; then
             print_error "APK file not found: $APK_FILE"
             exit 1
+        fi
+
+        mkdir -p "$WORK_DIR"
+        cd "$WORK_DIR"
+
+        local apk_file="app.apk"
+
+        # Check if it's an XAPK file
+        if [[ "$APK_FILE" == *.xapk ]]; then
+            print_info "Detected XAPK file: $APK_FILE"
+            print_info "Extracting XAPK and merging split APKs..."
+
+            if ! process_xapk "$APK_FILE" "$apk_file"; then
+                print_error "Failed to process XAPK file"
+                exit 1
+            fi
+
+            print_success "XAPK processed and merged"
+            return 0
         fi
 
         print_info "Using provided APK file: $APK_FILE"
@@ -365,6 +478,11 @@ get_apk() {
         print_success "APK file copied"
         return 0
     fi
+
+    mkdir -p "$WORK_DIR"
+    cd "$WORK_DIR"
+
+    local apk_file="app.apk"
 
     # Extract package name from URL if provided
     if [ -n "$PLAY_STORE_URL" ]; then
@@ -516,15 +634,15 @@ get_app_info() {
         return
     fi
 
-    # Extract app info from manifest
-    APP_INFO_PACKAGE=$(grep -oP 'package="\K[^"]+' "$manifest" | head -1 || echo "N/A")
-    APP_INFO_VERSION_NAME=$(grep -oP 'versionName="\K[^"]+' "$manifest" | head -1 || echo "N/A")
-    APP_INFO_VERSION_CODE=$(grep -oP 'versionCode="\K[^"]+' "$manifest" | head -1 || echo "N/A")
+    # Extract app info from manifest (using sed for macOS compatibility)
+    APP_INFO_PACKAGE=$(grep 'package=' "$manifest" | sed -n 's/.*package="\([^"]*\)".*/\1/p' | head -1 || echo "N/A")
+    APP_INFO_VERSION_NAME=$(grep 'versionName=' "$manifest" | sed -n 's/.*versionName="\([^"]*\)".*/\1/p' | head -1 || echo "N/A")
+    APP_INFO_VERSION_CODE=$(grep 'versionCode=' "$manifest" | sed -n 's/.*versionCode="\([^"]*\)".*/\1/p' | head -1 || echo "N/A")
 
     # Try to get app name from strings
     local strings_file="res/values/strings.xml"
     if [ -f "$strings_file" ]; then
-        APP_INFO_NAME=$(grep -oP 'name="app_name">\\K[^<]+' "$strings_file" | head -1 || echo "$APP_INFO_PACKAGE")
+        APP_INFO_NAME=$(grep 'name="app_name"' "$strings_file" | sed -n 's/.*>\(.*\)<.*/\1/p' | head -1 || echo "$APP_INFO_PACKAGE")
     else
         APP_INFO_NAME="$APP_INFO_PACKAGE"
     fi

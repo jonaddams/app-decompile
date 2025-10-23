@@ -2,7 +2,11 @@
 
 ## Quick Start
 
-The script automatically generates uniquely named reports for each app you analyze.
+The scripts automatically generate uniquely named reports for each app you analyze.
+
+**Platforms Supported:**
+- 📱 iOS (via `detect-sdk-ios.sh`)
+- 🤖 Android (via `detect-sdk-android.sh`) - **Now with XAPK support!**
 
 ## Report Naming
 
@@ -71,6 +75,63 @@ Check for multiple SDKs at once (useful after rebrand):
 
 ```bash
 ./detect-sdk.sh -s pspdfkit -s nutrient -s "PSPDFKit" -b com.customer.app
+```
+
+## Android-Specific Examples
+
+### 1. Analyze APK File
+
+```bash
+./detect-sdk-android.sh -s pspdfkit -s nutrient -f /path/to/app.apk
+```
+
+### 2. Analyze XAPK File (Automatic Extraction) 🆕
+
+The easiest way to analyze Android apps! Download the XAPK from APKPure and the script automatically extracts and merges split APKs:
+
+```bash
+# Download from APKPure, then:
+./detect-sdk-android.sh -s pspdfkit -s nutrient -f app.xapk
+
+# Or with relative path:
+./detect-sdk-android.sh -f ~/Downloads/quickbooks.xapk
+
+# List all libraries without searching for specific SDKs:
+./detect-sdk-android.sh -f app.xapk
+```
+
+**What happens automatically:**
+1. ✅ Script detects it's an XAPK file
+2. ✅ Extracts the base APK
+3. ✅ Extracts and merges architecture-specific libraries (ARM64, x86, etc.)
+4. ✅ Merges additional resources
+5. ✅ Creates a single APK for analysis
+6. ✅ Analyzes all native libraries and Java packages
+
+### 3. List All Libraries (No SDK Search)
+
+Discover what's in an app without specifying SDK names:
+
+```bash
+# Lists all 57+ libraries, frameworks, and packages
+./detect-sdk-android.sh -f app.xapk
+```
+
+### 4. Competitor Detection
+
+The script automatically detects competitor products from `competitors.txt`:
+
+```bash
+./detect-sdk-android.sh -f app.xapk
+```
+
+**Output includes:**
+```
+⚠️  COMPETITOR PRODUCTS DETECTED
+
+1. libmodpdfium.so
+   Competitor:  PDFium
+   Size:        5.0M
 ```
 
 ### 6. Custom Report Name

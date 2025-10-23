@@ -3,3 +3,6 @@
 /sdk-analysis*
 /sdk-detection*
 /framework-analysis*
+*.apk
+*.xapk
+*.txt
