@@ -35,6 +35,7 @@ SEARCH_TERM=""
 OUTPUT_REPORT="sdk-detection-report.txt"
 CLEANUP=true
 VERBOSE=false
+LIST_ALL_FRAMEWORKS=false
 
 ################################################################################
 # Helper Functions
@@ -86,6 +87,9 @@ ${BOLD}USAGE:${NC}
 ${BOLD}OPTIONS:${NC}
     -s, --sdk <name>          SDK name to search for (can be used multiple times)
                               Example: -s pspdfkit -s nutrient
+                              Note: If not specified, all frameworks will be listed
+
+    -a, --list-all            List all frameworks and libraries (default if no -s specified)
 
     -u, --url <url>           App Store URL
                               Example: https://apps.apple.com/us/app/app-name/id1234567890
@@ -110,17 +114,17 @@ ${BOLD}OPTIONS:${NC}
     -h, --help                Show this help message
 
 ${BOLD}EXAMPLES:${NC}
-    # Search for app and detect PSPDFKit
-    $0 -s pspdfkit -q "PDF Reader"
+    # List all frameworks in an app from URL
+    $0 -u "https://apps.apple.com/us/app/example/id123456"
 
-    # Analyze app from URL for multiple SDKs
-    $0 -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/example/id123456"
+    # List all frameworks using bundle ID
+    $0 -b com.example.app
 
-    # Analyze using bundle ID
-    $0 -s pspdfkit -b com.example.app
+    # Search for specific SDKs
+    $0 -s pspdfkit -s nutrient -b com.example.app
 
-    # Analyze with custom output and keep files
-    $0 -s pspdfkit -b com.example.app -o my-report.txt --no-cleanup
+    # List all frameworks with verbose output and keep files
+    $0 -a -b com.example.app -v --no-cleanup
 
 ${BOLD}FIRST-TIME SETUP:${NC}
     The script will automatically install and configure everything you need:
@@ -283,11 +287,10 @@ check_requirements() {
 }
 
 validate_inputs() {
+    # If no SDK names provided, enable list all mode
     if [ ${#SDK_NAMES[@]} -eq 0 ]; then
-        print_error "At least one SDK name is required (-s/--sdk)"
-        echo ""
-        show_usage
-        exit 1
+        LIST_ALL_FRAMEWORKS=true
+        log_verbose "No specific SDKs specified - will list all frameworks"
     fi
 
     # Check that at least one app identifier is provided
@@ -509,7 +512,99 @@ get_app_info() {
     echo "Size:         $app_size"
 }
 
+list_all_frameworks() {
+    print_header "Framework & Library Analysis"
+
+    ALL_FRAMEWORKS=()
+    ALL_FRAMEWORK_DETAILS=()
+
+    # List all frameworks in Frameworks directory
+    if [ -d "$APP_BUNDLE_PATH/Frameworks" ]; then
+        echo -e "${BOLD}📦 Embedded Frameworks:${NC}\n"
+
+        local framework_count=0
+        while IFS= read -r framework; do
+            if [ -z "$framework" ]; then
+                continue
+            fi
+
+            framework_count=$((framework_count + 1))
+            ALL_FRAMEWORKS+=("$framework")
+
+            echo -e "${CYAN}${BOLD}$framework_count. $framework${NC}"
+
+            local fw_path="$APP_BUNDLE_PATH/Frameworks/$framework"
+            local fw_details=""
+
+            # Get framework info
+            if [ -f "$fw_path/Info.plist" ]; then
+                local fw_bundle_id=$(plutil -extract CFBundleIdentifier raw "$fw_path/Info.plist" 2>/dev/null || echo "N/A")
+                local fw_version=$(plutil -extract CFBundleShortVersionString raw "$fw_path/Info.plist" 2>/dev/null || echo "N/A")
+                local fw_build=$(plutil -extract CFBundleVersion raw "$fw_path/Info.plist" 2>/dev/null || echo "N/A")
+
+                echo "   Bundle ID: $fw_bundle_id"
+                echo "   Version:   $fw_version (build $fw_build)"
+
+                fw_details="$framework|$fw_bundle_id|$fw_version|$fw_build"
+            else
+                fw_details="$framework|N/A|N/A|N/A"
+            fi
+
+            # Get framework size
+            if [ -d "$fw_path" ]; then
+                local fw_size=$(du -sh "$fw_path" 2>/dev/null | cut -f1)
+                echo "   Size:      $fw_size"
+                fw_details="$fw_details|$fw_size"
+            else
+                fw_details="$fw_details|N/A"
+            fi
+
+            ALL_FRAMEWORK_DETAILS+=("$fw_details")
+            echo ""
+        done < <(ls "$APP_BUNDLE_PATH/Frameworks/" 2>/dev/null)
+
+        if [ $framework_count -eq 0 ]; then
+            echo "   (No embedded frameworks found)"
+            echo ""
+        else
+            print_success "Found $framework_count embedded framework(s)"
+        fi
+    else
+        echo -e "${BOLD}📦 Embedded Frameworks:${NC}\n"
+        echo "   (No Frameworks directory found)"
+        echo ""
+    fi
+
+    # List dynamic library dependencies
+    echo -e "\n${BOLD}🔗 Dynamic Library Dependencies:${NC}\n"
+
+    local binary_deps=$(otool -L "$APP_BUNDLE_PATH/$APP_BINARY_NAME" 2>/dev/null | tail -n +2 || true)
+
+    if [ -n "$binary_deps" ]; then
+        echo "$binary_deps" | while IFS= read -r dep; do
+            if [ -n "$dep" ]; then
+                local clean_dep=$(echo "$dep" | xargs | sed 's/ (compatibility.*//')
+                echo "   • $clean_dep"
+            fi
+        done
+        echo ""
+    else
+        echo "   (No dynamic libraries found)"
+        echo ""
+    fi
+
+    # Summary
+    echo -e "${GREEN}${BOLD}✅ Analysis complete${NC}"
+}
+
 detect_frameworks() {
+    # If listing all frameworks, use the new function
+    if [ "$LIST_ALL_FRAMEWORKS" = true ]; then
+        list_all_frameworks
+        return
+    fi
+
+    # Otherwise, search for specific SDKs
     print_header "SDK Detection"
 
     DETECTED_SDKS=()
@@ -637,12 +732,133 @@ generate_report() {
 
         # Add timestamp to make it unique
         local timestamp=$(date +%Y%m%d-%H%M%S)
-        report_filename="sdk-detection-${identifier}-${timestamp}.txt"
+
+        if [ "$LIST_ALL_FRAMEWORKS" = true ]; then
+            report_filename="framework-analysis-${identifier}-${timestamp}.txt"
+        else
+            report_filename="sdk-detection-${identifier}-${timestamp}.txt"
+        fi
     fi
 
     # Save report to original directory, not work directory
     local report_file="$ORIGINAL_DIR/$report_filename"
     FINAL_REPORT_PATH="$report_file"
+
+    # Generate different reports based on mode
+    if [ "$LIST_ALL_FRAMEWORKS" = true ]; then
+        generate_all_frameworks_report "$report_file"
+    else
+        generate_sdk_detection_report "$report_file"
+    fi
+
+    print_success "Report saved to: $report_file"
+
+    # Also display report to console
+    echo ""
+    cat "$report_file"
+}
+
+generate_all_frameworks_report() {
+    local report_file="$1"
+
+    cat > "$report_file" << EOF
+================================================================================
+iOS APP FRAMEWORK & LIBRARY ANALYSIS REPORT
+================================================================================
+
+Generated: $(date "+%Y-%m-%d %H:%M:%S")
+Analysis Tool: iOS SDK Detection Script v1.0
+
+================================================================================
+APP INFORMATION
+================================================================================
+
+Name:           $APP_INFO_DISPLAY_NAME
+Bundle ID:      $APP_INFO_BUNDLE_ID
+Version:        $APP_INFO_VERSION
+Build:          $APP_INFO_BUILD
+App Size:       $(du -sh "$APP_BUNDLE_PATH" | cut -f1)
+
+================================================================================
+EMBEDDED FRAMEWORKS
+================================================================================
+
+EOF
+
+    if [ ${#ALL_FRAMEWORKS[@]} -eq 0 ]; then
+        cat >> "$report_file" << EOF
+No embedded frameworks found in the app bundle.
+
+EOF
+    else
+        cat >> "$report_file" << EOF
+Found ${#ALL_FRAMEWORKS[@]} embedded framework(s):
+
+EOF
+        local idx=1
+        for details in "${ALL_FRAMEWORK_DETAILS[@]}"; do
+            IFS='|' read -r fw_name fw_bundle fw_version fw_build fw_size <<< "$details"
+            cat >> "$report_file" << EOF
+$idx. $fw_name
+   Bundle ID: $fw_bundle
+   Version:   $fw_version (build $fw_build)
+   Size:      $fw_size
+
+EOF
+            idx=$((idx + 1))
+        done
+    fi
+
+    cat >> "$report_file" << EOF
+================================================================================
+DYNAMIC LIBRARY DEPENDENCIES
+================================================================================
+
+EOF
+
+    local binary_deps=$(otool -L "$APP_BUNDLE_PATH/$APP_BINARY_NAME" 2>/dev/null | tail -n +2 || true)
+    if [ -n "$binary_deps" ]; then
+        echo "$binary_deps" | while IFS= read -r dep; do
+            if [ -n "$dep" ]; then
+                local clean_dep=$(echo "$dep" | xargs | sed 's/ (compatibility.*//')
+                echo "  • $clean_dep" >> "$report_file"
+            fi
+        done
+    else
+        echo "  (No dynamic libraries found)" >> "$report_file"
+    fi
+
+    cat >> "$report_file" << EOF
+
+================================================================================
+ANALYSIS METHODS
+================================================================================
+
+1. Framework Directory Inspection
+   - Listed all frameworks in the Frameworks/ directory
+   - Extracted version, bundle ID, and size information
+
+2. Binary Dependency Analysis
+   - Used otool -L to list all dynamic library dependencies
+   - Shows both system frameworks and embedded libraries
+
+================================================================================
+TECHNICAL DETAILS
+================================================================================
+
+Analysis Directory: $WORK_DIR
+App Bundle Path:    $APP_BUNDLE_PATH
+Binary Name:        $APP_BINARY_NAME
+IPA Size:           $(du -sh "$WORK_DIR/app.ipa" 2>/dev/null | cut -f1)
+
+================================================================================
+END OF REPORT
+================================================================================
+EOF
+}
+
+generate_sdk_detection_report() {
+    local report_file="$1"
 
     cat > "$report_file" << EOF
 ================================================================================
@@ -770,12 +986,6 @@ IPA Size:           $(du -sh "$WORK_DIR/app.ipa" 2>/dev/null | cut -f1)
 END OF REPORT
 ================================================================================
 EOF
-
-    print_success "Report saved to: $report_file"
-
-    # Also display report to console
-    echo ""
-    cat "$report_file"
 }
 
 ################################################################################
@@ -809,6 +1019,10 @@ main() {
             -s|--sdk)
                 SDK_NAMES+=("$2")
                 shift 2
+                ;;
+            -a|--list-all)
+                LIST_ALL_FRAMEWORKS=true
+                shift
                 ;;
             -u|--url)
                 APP_STORE_URL="$2"
@@ -893,10 +1107,18 @@ main() {
     # Final summary
     print_header "Analysis Complete"
 
-    if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
-        echo -e "${RED}${BOLD}No SDKs detected${NC}"
+    if [ "$LIST_ALL_FRAMEWORKS" = true ]; then
+        if [ ${#ALL_FRAMEWORKS[@]} -eq 0 ]; then
+            echo -e "${YELLOW}${BOLD}No embedded frameworks found${NC}"
+        else
+            echo -e "${GREEN}${BOLD}Found ${#ALL_FRAMEWORKS[@]} embedded framework(s)${NC}"
+        fi
     else
-        echo -e "${GREEN}${BOLD}Detected SDKs: ${DETECTED_SDKS[*]}${NC}"
+        if [ ${#DETECTED_SDKS[@]} -eq 0 ]; then
+            echo -e "${RED}${BOLD}No SDKs detected${NC}"
+        else
+            echo -e "${GREEN}${BOLD}Detected SDKs: ${DETECTED_SDKS[*]}${NC}"
+        fi
     fi
 
     echo ""
