@@ -29,9 +29,20 @@ cd /Users/yourname/Downloads/app-decompile
 
 ### Step 2: Make the Script Runnable
 
+#### For iOS:
+
 In Terminal, type:
 ```bash
-chmod +x detect-sdk.sh
+chmod +x detect-sdk-ios.sh
+```
+
+Press Enter. This only needs to be done once.
+
+#### For Android: 
+
+In Terminal, type:
+```bash
+chmod +x detect-sdk-android.sh
 ```
 
 Press Enter. This only needs to be done once.
