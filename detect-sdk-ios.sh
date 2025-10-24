@@ -515,46 +515,45 @@ get_app_info() {
 }
 
 # Library information database functions
+# Note: Using simple file-based lookups instead of associative arrays for bash 3.2 compatibility
+LIBRARY_INFO_FILE=""
+
 load_library_info() {
-    declare -gA LIBRARY_INFO_DESC
-    declare -gA LIBRARY_INFO_VENDOR
+    LIBRARY_INFO_FILE="$ORIGINAL_DIR/library-info.txt"
 
-    local library_info_file="$SCRIPT_DIR/library-info.txt"
-
-    if [ ! -f "$library_info_file" ]; then
-        log_verbose "Library info file not found: $library_info_file"
+    if [ ! -f "$LIBRARY_INFO_FILE" ]; then
+        log_verbose "Library info file not found: $LIBRARY_INFO_FILE"
+        LIBRARY_INFO_FILE=""
         return
     fi
 
-    log_verbose "Loading library info from: $library_info_file"
+    log_verbose "Loading library info from: $LIBRARY_INFO_FILE"
 
-    while IFS='|' read -r lib_name description vendor; do
-        # Skip empty lines and comments
-        if [ -z "$lib_name" ] || [[ "$lib_name" =~ ^[[:space:]]*# ]]; then
-            continue
-        fi
-
-        # Store description and vendor in associative arrays
-        LIBRARY_INFO_DESC["$lib_name"]="$description"
-        LIBRARY_INFO_VENDOR["$lib_name"]="$vendor"
-    done < "$library_info_file"
-
-    log_verbose "Loaded ${#LIBRARY_INFO_DESC[@]} library descriptions"
+    # Count non-comment, non-empty lines
+    local count=$(grep -v '^[[:space:]]*#' "$LIBRARY_INFO_FILE" | grep -v '^[[:space:]]*$' | wc -l | tr -d ' ')
+    log_verbose "Loaded $count library descriptions"
 }
 
 get_library_description() {
     local lib_name="$1"
 
+    if [ -z "$LIBRARY_INFO_FILE" ] || [ ! -f "$LIBRARY_INFO_FILE" ]; then
+        echo ""
+        return
+    fi
+
     # Try exact match first
-    if [ -n "${LIBRARY_INFO_DESC[$lib_name]}" ]; then
-        echo "${LIBRARY_INFO_DESC[$lib_name]}"
+    local result=$(grep "^${lib_name}|" "$LIBRARY_INFO_FILE" 2>/dev/null | head -1 | cut -d'|' -f2)
+    if [ -n "$result" ]; then
+        echo "$result"
         return
     fi
 
     # Try without .framework extension
     local base_name="${lib_name%.framework}"
-    if [ -n "${LIBRARY_INFO_DESC[$base_name]}" ]; then
-        echo "${LIBRARY_INFO_DESC[$base_name]}"
+    result=$(grep "^${base_name}|" "$LIBRARY_INFO_FILE" 2>/dev/null | head -1 | cut -d'|' -f2)
+    if [ -n "$result" ]; then
+        echo "$result"
         return
     fi
 
@@ -565,16 +564,23 @@ get_library_description() {
 get_library_vendor() {
     local lib_name="$1"
 
+    if [ -z "$LIBRARY_INFO_FILE" ] || [ ! -f "$LIBRARY_INFO_FILE" ]; then
+        echo ""
+        return
+    fi
+
     # Try exact match first
-    if [ -n "${LIBRARY_INFO_VENDOR[$lib_name]}" ]; then
-        echo "${LIBRARY_INFO_VENDOR[$lib_name]}"
+    local result=$(grep "^${lib_name}|" "$LIBRARY_INFO_FILE" 2>/dev/null | head -1 | cut -d'|' -f3)
+    if [ -n "$result" ]; then
+        echo "$result"
         return
     fi
 
     # Try without .framework extension
     local base_name="${lib_name%.framework}"
-    if [ -n "${LIBRARY_INFO_VENDOR[$base_name]}" ]; then
-        echo "${LIBRARY_INFO_VENDOR[$base_name]}"
+    result=$(grep "^${base_name}|" "$LIBRARY_INFO_FILE" 2>/dev/null | head -1 | cut -d'|' -f3)
+    if [ -n "$result" ]; then
+        echo "$result"
         return
     fi
 
