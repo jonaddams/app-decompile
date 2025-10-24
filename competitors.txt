@@ -104,7 +104,7 @@ PDF.co (by Artifex)
 Pdfcrowd s.r.o.
 PDFfiller
 PDFix
-PDFKit
+PDFKit [Apple's built-in PDF framework]
 PDFlib GmbH (by Apryse)
 Pegasystems, Inc.
 Philip Hutchison

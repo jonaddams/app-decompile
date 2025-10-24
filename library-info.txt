@@ -82,6 +82,8 @@ libjniPdfium.so|JNI wrapper for PDFium PDF rendering functionality|Various
 libmodpng.so|Modified PNG codec used by PDFium|Various
 libmodft2.so|Modified FreeType 2 font rendering used by PDFium|Various
 libpdfium.so|PDFium PDF rendering engine from Chromium project|Google
+PDFKit.framework|Apple's native PDF viewing, annotation, and manipulation framework|Apple
+PDFKit|Apple's native PDF viewing, annotation, and manipulation framework|Apple
 
 # ==============================================================================
 # CAMERA & VISION
