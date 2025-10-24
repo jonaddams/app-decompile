@@ -127,7 +127,7 @@ The script automatically detects competitor products from `competitors.txt`:
 
 **Output includes:**
 ```
-⚠️  COMPETITOR PRODUCTS DETECTED
+⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED
 
 1. libmodpdfium.so
    Competitor:  PDFium

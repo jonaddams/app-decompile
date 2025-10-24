@@ -439,6 +439,183 @@ get_library_version() {
     echo ""
 }
 
+################################################################################
+# Additional Metadata Extraction Functions
+################################################################################
+
+extract_play_services_versions() {
+    # Initialize global associative array
+    PLAY_SERVICES_VERSIONS=()
+
+    log_verbose "Extracting Google Play Services versions..."
+
+    # Find all play-services and firebase .properties files and store in indexed array
+    while IFS= read -r prop_file; do
+        if [ -f "$prop_file" ]; then
+            local version=$(grep "^version=" "$prop_file" 2>/dev/null | cut -d'=' -f2)
+            local client=$(grep "^client=" "$prop_file" 2>/dev/null | cut -d'=' -f2)
+
+            if [ -n "$client" ] && [ -n "$version" ]; then
+                PLAY_SERVICES_VERSIONS+=("$client|$version")
+            fi
+        fi
+    done < <(find "$APK_RAW_PATH" -name "play-services-*.properties" -o -name "firebase-*.properties" 2>/dev/null)
+
+    log_verbose "Found ${#PLAY_SERVICES_VERSIONS[@]} Play Services/Firebase libraries"
+}
+
+extract_androidx_libraries() {
+    ANDROIDX_LIBRARIES=()
+
+    log_verbose "Extracting AndroidX library list..."
+
+    local meta_inf_dir="$APK_RAW_PATH/META-INF"
+
+    if [ ! -d "$meta_inf_dir" ]; then
+        return
+    fi
+
+    # Find all AndroidX .version files
+    while IFS= read -r version_file; do
+        if [ -f "$version_file" ]; then
+            local lib_name=$(basename "$version_file" .version)
+            local version=$(cat "$version_file" 2>/dev/null | tr -d '\n\r')
+
+            if [ -n "$version" ] && [[ "$lib_name" == androidx.* ]]; then
+                ANDROIDX_LIBRARIES+=("$lib_name|$version")
+            fi
+        fi
+    done < <(find "$meta_inf_dir" -name "androidx.*.version" 2>/dev/null)
+
+    log_verbose "Found ${#ANDROIDX_LIBRARIES[@]} AndroidX libraries"
+}
+
+extract_permissions() {
+    APP_PERMISSIONS=()
+    APP_FEATURES=()
+
+    log_verbose "Extracting permissions and features..."
+
+    local manifest="$APK_EXTRACTED_PATH/AndroidManifest.xml"
+
+    if [ ! -f "$manifest" ]; then
+        return
+    fi
+
+    # Extract permissions
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            local perm=$(echo "$line" | sed -n 's/.*android:name="\([^"]*\)".*/\1/p')
+            if [ -n "$perm" ]; then
+                APP_PERMISSIONS+=("$perm")
+            fi
+        fi
+    done < <(grep "uses-permission" "$manifest" 2>/dev/null)
+
+    # Extract features
+    while IFS= read -r line; do
+        if [ -n "$line" ]; then
+            local feat=$(echo "$line" | sed -n 's/.*android:name="\([^"]*\)".*/\1/p')
+            local required=$(echo "$line" | sed -n 's/.*android:required="\([^"]*\)".*/\1/p')
+            if [ -n "$feat" ]; then
+                if [ "$required" = "false" ]; then
+                    APP_FEATURES+=("$feat|optional")
+                else
+                    APP_FEATURES+=("$feat|required")
+                fi
+            fi
+        fi
+    done < <(grep "uses-feature" "$manifest" 2>/dev/null)
+
+    log_verbose "Found ${#APP_PERMISSIONS[@]} permissions and ${#APP_FEATURES[@]} features"
+}
+
+extract_build_info() {
+    BUILD_INFO=()
+
+    log_verbose "Extracting build information..."
+
+    local metadata_file="$APK_RAW_PATH/META-INF/com/android/build/gradle/app-metadata.properties"
+
+    if [ -f "$metadata_file" ]; then
+        while IFS='=' read -r key value; do
+            if [ -n "$key" ] && [ -n "$value" ]; then
+                BUILD_INFO+=("$key|$value")
+            fi
+        done < "$metadata_file"
+    fi
+
+    log_verbose "Found ${#BUILD_INFO[@]} build metadata entries"
+}
+
+extract_kotlin_info() {
+    KOTLIN_INFO=()
+
+    log_verbose "Extracting Kotlin metadata..."
+
+    # Check for Kotlin tooling metadata
+    local kotlin_json="$APK_RAW_PATH/kotlin-tooling-metadata.json"
+    if [ -f "$kotlin_json" ]; then
+        KOTLIN_INFO+=("metadata_found|yes")
+    fi
+
+    # Check for Kotlin libraries in META-INF versions
+    local meta_inf_dir="$APK_RAW_PATH/META-INF"
+    if [ -d "$meta_inf_dir" ]; then
+        while IFS= read -r version_file; do
+            if [ -f "$version_file" ]; then
+                local lib_name=$(basename "$version_file" .version)
+                local version=$(cat "$version_file" 2>/dev/null | tr -d '\n\r')
+
+                if [ -n "$version" ]; then
+                    if [[ "$lib_name" == "kotlin"* ]] || [[ "$lib_name" == "kotlinx"* ]]; then
+                        KOTLIN_INFO+=("$lib_name|$version")
+                    fi
+                fi
+            fi
+        done < <(find "$meta_inf_dir" -name "kotlin*.version" 2>/dev/null)
+    fi
+
+    log_verbose "Found ${#KOTLIN_INFO[@]} Kotlin metadata entries"
+}
+
+extract_assets_summary() {
+    ASSETS_INFO=()
+
+    log_verbose "Extracting assets and resources summary..."
+
+    # Count assets
+    local asset_count="0"
+    local asset_size="0"
+    if [ -d "$APK_RAW_PATH/assets" ]; then
+        asset_count=$(find "$APK_RAW_PATH/assets" -type f 2>/dev/null | wc -l | tr -d ' ')
+        asset_size=$(du -sh "$APK_RAW_PATH/assets" 2>/dev/null | cut -f1)
+    fi
+    ASSETS_INFO+=("asset_count|$asset_count")
+    ASSETS_INFO+=("asset_size|$asset_size")
+
+    # Count resources
+    local res_count="0"
+    local res_size="0"
+    if [ -d "$APK_RAW_PATH/res" ]; then
+        res_count=$(find "$APK_RAW_PATH/res" -type f 2>/dev/null | wc -l | tr -d ' ')
+        res_size=$(du -sh "$APK_RAW_PATH/res" 2>/dev/null | cut -f1)
+    fi
+    ASSETS_INFO+=("res_count|$res_count")
+    ASSETS_INFO+=("res_size|$res_size")
+
+    # Detect supported languages from resource qualifiers
+    if [ -d "$APK_RAW_PATH/res" ]; then
+        local languages=$(find "$APK_RAW_PATH/res" -type d -name "values-*" 2>/dev/null | \
+            sed 's/.*values-//' | sed 's/-.*//' | sort -u | tr '\n' ',' | sed 's/,$//')
+        if [ -n "$languages" ]; then
+            ASSETS_INFO+=("languages|$languages")
+        fi
+    fi
+
+    log_verbose "Assets: $asset_count files, Resources: $res_count files"
+}
+
 process_xapk() {
     local xapk_file="$1"
     local output_apk="$2"
@@ -818,8 +995,14 @@ list_all_libraries() {
     load_competitors
     load_library_info
 
-    # Extract library versions from META-INF
+    # Extract all metadata
     extract_library_versions
+    extract_play_services_versions
+    extract_androidx_libraries
+    extract_permissions
+    extract_build_info
+    extract_kotlin_info
+    extract_assets_summary
 
     # List all native libraries
     if [ -d "$APK_RAW_PATH/lib" ]; then
@@ -885,7 +1068,7 @@ list_all_libraries() {
 
     # Display competitor products if found
     if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
-        echo -e "\n${BOLD}${RED}⚠️  COMPETITOR PRODUCTS DETECTED:${NC}\n"
+        echo -e "\n${BOLD}${RED}⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED:${NC}\n"
 
         local idx=1
         for match_info in "${COMPETITOR_PRODUCTS[@]}"; do
@@ -1099,10 +1282,10 @@ EOF
     if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
         cat >> "$report_file" << EOF
 --------------------------------------------------------------------------------
-⚠️  COMPETITOR PRODUCTS DETECTED
+⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED
 --------------------------------------------------------------------------------
 
-WARNING: This app contains ${#COMPETITOR_PRODUCTS[@]} competitor product(s):
+WARNING: This app contains ${#COMPETITOR_PRODUCTS[@]} potential competitor product(s):
 
 EOF
         local idx=1
@@ -1187,22 +1370,137 @@ EOF
 
     cat >> "$report_file" << EOF
 
+EOF
+
+    # Add Google Play Services section
+    if [ ${#PLAY_SERVICES_VERSIONS[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
 --------------------------------------------------------------------------------
-ANALYSIS METHODS
+GOOGLE PLAY SERVICES & FIREBASE
 --------------------------------------------------------------------------------
 
-1. Native Library Inspection
-   - Listed all .so files in lib/ directories
-   - Extracted architecture and size information
+Found ${#PLAY_SERVICES_VERSIONS[@]} Google Play Services/Firebase libraries:
 
-2. Competitor Detection
-   - Checked libraries against known competitors list
-   - Flagged any matches for review
+EOF
+        for entry in "${PLAY_SERVICES_VERSIONS[@]}"; do
+            IFS='|' read -r client version <<< "$entry"
+            echo "  • $client ($version)" >> "$report_file"
+        done | sort >> "$report_file"
+        echo "" >> "$report_file"
+    fi
 
-3. Java Package Analysis
-   - Listed top-level Java packages from decompiled code
-   - Counted classes per package
+    # Add AndroidX libraries section
+    if [ ${#ANDROIDX_LIBRARIES[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+ANDROIDX LIBRARIES
+--------------------------------------------------------------------------------
 
+Found ${#ANDROIDX_LIBRARIES[@]} AndroidX/Jetpack libraries:
+
+EOF
+        for lib_entry in "${ANDROIDX_LIBRARIES[@]}"; do
+            IFS='|' read -r lib_name version <<< "$lib_entry"
+            echo "  • $lib_name ($version)" >> "$report_file"
+        done | sort >> "$report_file"
+        echo "" >> "$report_file"
+    fi
+
+    # Add Kotlin info section
+    if [ ${#KOTLIN_INFO[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+KOTLIN LIBRARIES
+--------------------------------------------------------------------------------
+
+EOF
+        for entry in "${KOTLIN_INFO[@]}"; do
+            IFS='|' read -r lib version <<< "$entry"
+            if [ "$lib" != "metadata_found" ]; then
+                echo "  • $lib ($version)" >> "$report_file"
+            fi
+        done | sort >> "$report_file"
+        echo "" >> "$report_file"
+    fi
+
+    # Add permissions section
+    if [ ${#APP_PERMISSIONS[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+PERMISSIONS
+--------------------------------------------------------------------------------
+
+This app requests ${#APP_PERMISSIONS[@]} permissions:
+
+EOF
+        for perm in "${APP_PERMISSIONS[@]}"; do
+            echo "  • $perm" >> "$report_file"
+        done | sort >> "$report_file"
+        echo "" >> "$report_file"
+    fi
+
+    # Add features section
+    if [ ${#APP_FEATURES[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+HARDWARE FEATURES
+--------------------------------------------------------------------------------
+
+This app declares ${#APP_FEATURES[@]} hardware features:
+
+EOF
+        for feat_entry in "${APP_FEATURES[@]}"; do
+            IFS='|' read -r feat required <<< "$feat_entry"
+            echo "  • $feat [$required]" >> "$report_file"
+        done | sort >> "$report_file"
+        echo "" >> "$report_file"
+    fi
+
+    # Add build info section
+    if [ ${#BUILD_INFO[@]} -gt 0 ]; then
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+BUILD INFORMATION
+--------------------------------------------------------------------------------
+
+EOF
+        for entry in "${BUILD_INFO[@]}"; do
+            IFS='|' read -r key value <<< "$entry"
+            echo "  $key: $value" >> "$report_file"
+        done | sort >> "$report_file"
+        echo "" >> "$report_file"
+    fi
+
+    # Add assets summary section
+    if [ ${#ASSETS_INFO[@]} -gt 0 ]; then
+        # Parse ASSETS_INFO array to extract values
+        local asset_count asset_size res_count res_size languages
+        for entry in "${ASSETS_INFO[@]}"; do
+            IFS='|' read -r key value <<< "$entry"
+            case "$key" in
+                asset_count) asset_count="$value" ;;
+                asset_size) asset_size="$value" ;;
+                res_count) res_count="$value" ;;
+                res_size) res_size="$value" ;;
+                languages) languages="$value" ;;
+            esac
+        done
+
+        cat >> "$report_file" << EOF
+--------------------------------------------------------------------------------
+ASSETS & RESOURCES SUMMARY
+--------------------------------------------------------------------------------
+
+Assets:    $asset_count files ($asset_size)
+Resources: $res_count files ($res_size)
+EOF
+        if [ -n "$languages" ]; then
+            echo "Languages: $languages" >> "$report_file"
+        fi
+        echo "" >> "$report_file"
+    fi
+
+    cat >> "$report_file" << EOF
 --------------------------------------------------------------------------------
 TECHNICAL DETAILS
 --------------------------------------------------------------------------------
@@ -1210,6 +1508,7 @@ TECHNICAL DETAILS
 Analysis Directory: $WORK_DIR
 APK Path:           $WORK_DIR/app.apk
 Extracted Path:     $APK_EXTRACTED_PATH
+Library Database:   $SCRIPT_DIR/library-info.txt
 Competitors File:   $COMPETITORS_FILE
 
 --------------------------------------------------------------------------------

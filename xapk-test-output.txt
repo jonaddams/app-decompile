@@ -280,7 +280,7 @@ APK Size:     160M
 [0;32m✅ Found 57 native library/libraries[0m
 [1;33m⚠️  WARNING: Detected 4 competitor product(s)[0m
 
-[1m[0;31m⚠️  COMPETITOR PRODUCTS DETECTED:[0m
+[1m[0;31m⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED:[0m
 
 [0;31m[1m1. libmapbufferjni.so[0m
    Competitor:  IBM
@@ -353,7 +353,7 @@ Version Code:
 APK Size:       160M
 
 --------------------------------------------------------------------------------
-⚠️  COMPETITOR PRODUCTS DETECTED
+⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED
 --------------------------------------------------------------------------------
 
 WARNING: This app contains 4 competitor product(s):

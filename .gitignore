@@ -1,8 +1,8 @@
 /.DS_Store
 /.claude
+/library-analysis*.txt
 /sdk-analysis*
 /sdk-detection*
 /framework-analysis*
 *.apk
 *.xapk
-/library-analysis*.txt

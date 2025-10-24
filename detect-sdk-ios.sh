@@ -730,7 +730,7 @@ list_all_frameworks() {
 
     # Display competitor products if found
     if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
-        echo -e "\n${BOLD}${RED}⚠️  COMPETITOR PRODUCTS DETECTED:${NC}\n"
+        echo -e "\n${BOLD}${RED}⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED:${NC}\n"
 
         local idx=1
         for match_info in "${COMPETITOR_PRODUCTS[@]}"; do
@@ -958,10 +958,10 @@ EOF
     if [ ${#COMPETITOR_PRODUCTS[@]} -gt 0 ]; then
         cat >> "$report_file" << EOF
 --------------------------------------------------------------------------------
-⚠️  COMPETITOR PRODUCTS DETECTED
+⚠️  POTENTIAL COMPETITOR PRODUCTS DETECTED
 --------------------------------------------------------------------------------
 
-WARNING: This app contains ${#COMPETITOR_PRODUCTS[@]} competitor product(s):
+WARNING: This app contains ${#COMPETITOR_PRODUCTS[@]} potential competitor product(s):
 
 EOF
         local idx=1
