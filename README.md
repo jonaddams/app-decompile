@@ -28,13 +28,13 @@ This tool helps you verify whether former customers have removed your SDK from t
 
 ```bash
 # Make script executable (first time only)
-chmod +x detect-sdk.sh
+chmod +x detect-sdk-ios.sh
 
 # Analyze by App Store URL
-./detect-sdk.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/app-name/id1234567890"
+./detect-sdk-ios.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/app-name/id1234567890"
 
 # Or by bundle ID
-./detect-sdk.sh -s pspdfkit -b com.example.app
+./detect-sdk-ios.sh -s pspdfkit -b com.example.app
 ```
 
 **First time?** The script automatically installs Homebrew, ipatool, and handles Apple ID authentication!
@@ -146,13 +146,13 @@ Check for multiple SDK names at once:
 
 ```bash
 # Keep analysis files for manual inspection
-./detect-sdk.sh -s pspdfkit -b com.customer.app --no-cleanup
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer.app --no-cleanup
 
 # Verbose output for debugging
-./detect-sdk.sh -s pspdfkit -b com.customer.app -v
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer.app -v
 
 # Custom report name
-./detect-sdk.sh -s pspdfkit -b com.customer.app -o my-report.txt
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer.app -o my-report.txt
 ```
 
 ## 📚 Documentation
@@ -207,15 +207,15 @@ OPTIONS:
 
 ### 1. Verify SDK Removal by Former Customer
 ```bash
-./detect-sdk.sh -s pspdfkit -s nutrient -b com.formerclient.app
+./detect-sdk-{platform}.sh -s pspdfkit -s nutrient -b com.formerclient.app
 ```
 
 ### 2. Check Multiple Customer Apps
 ```bash
 # Check each customer
-./detect-sdk.sh -s pspdfkit -b com.customer1.app
-./detect-sdk.sh -s pspdfkit -b com.customer2.app
-./detect-sdk.sh -s pspdfkit -b com.customer3.app
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer1.app
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer2.app
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer3.app
 
 # All reports saved with unique names automatically
 ls sdk-detection-*.txt
@@ -224,7 +224,7 @@ ls sdk-detection-*.txt
 ### 3. Rebranded SDK Detection
 After rebranding from PSPDFKit to Nutrient:
 ```bash
-./detect-sdk.sh -s pspdfkit -s nutrient -b com.customer.app
+./detect-sdk-{platform}.sh -s pspdfkit -s nutrient -b com.customer.app
 ```
 
 ## 📋 Report Contents
@@ -272,7 +272,7 @@ ipatool auth login --email your@email.com
 ### App not found
 ```bash
 # Search first to get correct bundle ID
-./detect-sdk.sh -s pspdfkit -q "App Name"
+./detect-sdk-{platform}.sh -s pspdfkit -q "App Name"
 ```
 
 ### Permission errors
@@ -306,14 +306,14 @@ Report saved to: `sdk-detection-com-scenedoc-mobile-ios-20251015-153416.txt`
 ```bash
 #!/bin/bash
 for bundle_id in com.customer1.app com.customer2.app; do
-    ./detect-sdk.sh -s pspdfkit -b "$bundle_id"
+    ./detect-sdk-{platform}.sh -s pspdfkit -b "$bundle_id"
 done
 ```
 
 ### Automated Compliance Reports
 ```bash
 # Weekly compliance check
-0 0 * * 0 cd /path/to/tool && ./detect-sdk.sh -s pspdfkit -b com.customer.app
+0 0 * * 0 cd /path/to/tool && ./detect-sdk-{platform}.sh -s pspdfkit -b com.customer.app
 ```
 
 ## 📞 Support
