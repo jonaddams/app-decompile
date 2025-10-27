@@ -26,7 +26,7 @@ Step 2: Navigate to the folder
 
 Step 3: Run the check
   • Copy this command:
-    chmod +x detect-sdk.sh && ./detect-sdk.sh -s pspdfkit -s nutrient -u "PASTE_APP_URL_HERE"
+    chmod +x detect-sdk-{platform}.sh && ./detect-sdk-{platform}.sh -s pspdfkit -s nutrient -u "PASTE_APP_URL_HERE"
   
   • Replace PASTE_APP_URL_HERE with the App Store link
   • Press Enter
@@ -63,19 +63,19 @@ The report file is automatically named with:
 💡 EXAMPLES:
 
 Check Data Collect Mobile app:
-  ./detect-sdk.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/data-collect-mobile/id1494756647"
+  ./detect-sdk-{platform}.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/data-collect-mobile/id1494756647"
 
 Check multiple customers:
-  ./detect-sdk.sh -s pspdfkit -b com.customer1.app
-  ./detect-sdk.sh -s pspdfkit -b com.customer2.app
-  ./detect-sdk.sh -s pspdfkit -b com.customer3.app
+  ./detect-sdk-{platform}.sh -s pspdfkit -b com.customer1.app
+  ./detect-sdk-{platform}.sh -s pspdfkit -b com.customer2.app
+  ./detect-sdk-{platform}.sh -s pspdfkit -b com.customer3.app
 
 ═══════════════════════════════════════════════════════════════
 
 ❓ COMMON ISSUES:
 
 "Permission denied"
-  → Run: chmod +x detect-sdk.sh
+  → Run: chmod +x detect-sdk-{platform}.sh
 
 "Command not found"  
   → Make sure you're in the right folder (Step 2)
@@ -106,3 +106,7 @@ Examples: Open USAGE_EXAMPLES.md
 • Ask IT team for help if stuck
 
 ═══════════════════════════════════════════════════════════════
+
+Troubleshooting: 
+ERR error="failed to purchase item with param 'STDQ': password token is expired" success=false
+❌ ERROR: Failed to download app

@@ -18,29 +18,32 @@ That's it! The tool will install everything else automatically.
 
 1. Download all the files to a folder on your Mac
 2. Open **Terminal** (Applications → Utilities → Terminal)
-3. Type `cd ` (with a space after it)
+3. Type `cd` (with a space after it)
 4. Drag the folder containing the script into Terminal
 5. Press Enter
 
 You should see something like:
+
 ```
 cd /Users/yourname/Downloads/app-decompile
 ```
 
 ### Step 2: Make the Script Runnable
 
-#### For iOS:
+#### For iOS
 
 In Terminal, type:
+
 ```bash
 chmod +x detect-sdk-ios.sh
 ```
 
 Press Enter. This only needs to be done once.
 
-#### For Android: 
+#### For Android
 
 In Terminal, type:
+
 ```bash
 chmod +x detect-sdk-android.sh
 ```
@@ -59,11 +62,13 @@ You need either the **App Store URL** or **Bundle ID** of the app you want to ch
 4. Select **Copy Link**
 
 The link will look like:
+
 ```
 https://apps.apple.com/us/app/app-name/id1234567890
 ```
 
 **Note:** The tool automatically handles URLs with extra parameters, so all these work:
+
 - `https://apps.apple.com/us/app/app-name/id1234567890`
 - `https://apps.apple.com/us/app/app-name/id1234567890?l=es-MX`
 - `https://apps.apple.com/gb/app/app-name/id1234567890?mt=8&uo=4`
@@ -73,6 +78,7 @@ Just paste the URL as-is - no need to clean it up!
 #### Option B: Using the Bundle ID
 
 The bundle ID is the app's unique identifier, like `com.company.appname`. You can:
+
 - Search for it on [AppFollow](https://appfollow.io/)
 - Search for it on [App Store](https://www.apple.com/app-store/)
 - Ask the customer (if appropriate)
@@ -82,16 +88,19 @@ The bundle ID is the app's unique identifier, like `com.company.appname`. You ca
 In Terminal, type one of these commands:
 
 **Using App Store URL:**
+
 ```bash
-./detect-sdk.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/app-name/id1234567890"
+./detect-sdk-{platform}.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/app-name/id1234567890"
 ```
 
 **Using Bundle ID:**
+
 ```bash
-./detect-sdk.sh -s pspdfkit -s nutrient -b com.company.appname
+./detect-sdk-{platform}.sh -s pspdfkit -s nutrient -b com.company.appname
 ```
 
 Replace:
+
 - `pspdfkit` and `nutrient` with your SDK names
 - The URL or bundle ID with the actual app information
 
@@ -116,6 +125,7 @@ The script guides you through each step with clear messages.
 ### Step 6: Wait for Analysis
 
 The script will:
+
 1. ✅ Download the app from the App Store (~45 MB typical)
 2. ✅ Extract and analyze the app
 3. ✅ Search for your SDK
@@ -126,6 +136,7 @@ This takes 2-5 minutes depending on app size and internet speed.
 ### Step 7: Read the Results
 
 When done, you'll see a message like:
+
 ```
 ✅ RESULT: pspdfkit SDK IS PRESENT
 ```
@@ -137,6 +148,7 @@ or
 ```
 
 The full report is saved as:
+
 ```
 sdk-detection-com-company-appname-20251015-153416.txt
 ```
@@ -153,11 +165,13 @@ sdk-detection-com-company-appname-20251015-153416.txt
 ```
 
 **What this means:**
+
 - The customer's app **still contains** your SDK
 - They have **NOT** removed it
 - This may be a license compliance issue
 
 **What to do:**
+
 1. Open the report file (double-click it)
 2. Note the SDK version and size
 3. Contact the customer about license compliance
@@ -170,6 +184,7 @@ sdk-detection-com-company-appname-20251015-153416.txt
 ```
 
 **What this means:**
+
 - The customer's app does **NOT** contain your SDK
 - They **HAVE** successfully removed it
 - No compliance issues
@@ -182,6 +197,7 @@ sdk-detection-com-company-appname-20251015-153416.txt
 ```
 
 **What this means:**
+
 - They're using the old SDK name (PSPDFKit)
 - They haven't updated to the new name (Nutrient)
 - The SDK is still present
@@ -191,6 +207,7 @@ sdk-detection-com-company-appname-20251015-153416.txt
 ### "Permission denied"
 
 **Solution:** You forgot Step 2. Run:
+
 ```bash
 chmod +x detect-sdk.sh
 ```
@@ -202,8 +219,9 @@ chmod +x detect-sdk.sh
 ### "App not found"
 
 **Solution:**
+
 - Check the bundle ID is correct
-- Try searching: `./detect-sdk.sh -s pspdfkit -q "App Name"`
+- Try searching: `./detect-sdk-{platform}.sh -s pspdfkit -q "App Name"`
 
 ### Script asks for password
 
@@ -212,6 +230,7 @@ chmod +x detect-sdk.sh
 ### Authentication keeps failing
 
 **Solutions:**
+
 1. Make sure you're using the correct Apple ID
 2. Check your 2FA code is still valid (they expire quickly)
 3. Try generating an app-specific password at [appleid.apple.com](https://appleid.apple.com)
@@ -222,16 +241,17 @@ To check multiple apps, just run the script multiple times:
 
 ```bash
 # Customer 1
-./detect-sdk.sh -s pspdfkit -b com.customer1.app
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer1.app
 
 # Customer 2
-./detect-sdk.sh -s pspdfkit -b com.customer2.app
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer2.app
 
 # Customer 3
-./detect-sdk.sh -s pspdfkit -b com.customer3.app
+./detect-sdk-{platform}.sh -s pspdfkit -b com.customer3.app
 ```
 
 Each analysis creates a separate report with a unique name:
+
 - `sdk-detection-com-customer1-app-20251015-150000.txt`
 - `sdk-detection-com-customer2-app-20251015-150100.txt`
 - `sdk-detection-com-customer3-app-20251015-150200.txt`
