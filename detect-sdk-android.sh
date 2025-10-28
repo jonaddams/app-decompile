@@ -14,6 +14,14 @@
 
 set -e  # Exit on error
 
+# Add Homebrew to PATH (needed when running from GUI apps)
+# Check both Apple Silicon and Intel Mac locations
+if [ -x "/opt/homebrew/bin/brew" ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -x "/usr/local/bin/brew" ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+fi
+
 # Color codes for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
