@@ -18,10 +18,86 @@ end run
 
 -- iOS Analysis Function
 on analyzeIOS()
+	-- Get the directory where this app is located
+	set appPath to path to me
+	set appPosixPath to POSIX path of appPath
+	if appPosixPath ends with "/" then
+		set appPosixPath to text 1 thru -2 of appPosixPath
+	end if
+	set scriptDir to do shell script "dirname " & quoted form of appPosixPath
+
+	-- Check if ipatool is authenticated
+	set isAuthenticated to false
+	set currentEmail to ""
+
+	try
+		set authCheck to do shell script "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth info 2>&1"
+		if authCheck contains "email=" then
+			set isAuthenticated to true
+			-- Extract email from output
+			try
+				set currentEmail to do shell script "echo " & quoted form of authCheck & " | grep -o 'email=[^ ]*' | cut -d= -f2"
+			end try
+		end if
+	end try
+
+	-- If not authenticated, prompt for Apple ID
+	if not isAuthenticated then
+		set authPrompt to "🔐 Apple ID Authentication Required" & return & return & ¬
+			"To download iOS apps, you need to authenticate with your Apple ID." & return & return & ¬
+			"Enter your Apple ID email address:"
+
+		try
+			set appleIDEmail to text returned of (display dialog authPrompt default answer "" buttons {"Cancel", "Authenticate"} default button "Authenticate" with icon note with title "Authentication Required")
+		on error
+			return -- User cancelled
+		end try
+
+		if appleIDEmail is "" then
+			display dialog "Apple ID email is required to continue." buttons {"OK"} default button "OK" with icon stop with title "Error"
+			return
+		end if
+
+		-- Show authentication dialog
+		display dialog "🔄 Authenticating with Apple..." & return & return & ¬
+			"Email: " & appleIDEmail & return & return & ¬
+			"You'll be prompted for your Apple ID password." & return & ¬
+			"This may take a moment..." buttons {"Authenticating..."} default button 1 giving up after 2 with title "SDK Analyzer" with icon note
+
+		-- Attempt authentication
+		try
+			set authCommand to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " 2>&1"
+			do shell script authCommand
+
+			display notification "Successfully authenticated!" with title "SDK Analyzer"
+
+		on error authError
+			set errorMsg to "❌ Authentication Failed" & return & return & ¬
+				"Could not authenticate with Apple ID." & return & return & ¬
+				"Please check:" & return & ¬
+				"• Email address is correct" & return & ¬
+				"• Password is correct" & return & ¬
+				"• Internet connection is active" & return & return & ¬
+				"Error details:" & return & authError
+
+			display dialog errorMsg buttons {"OK"} default button "OK" with icon stop with title "Authentication Failed"
+			return
+		end try
+	else
+		-- Show currently authenticated user
+		if currentEmail is not "" then
+			display notification "Authenticated as: " & currentEmail with title "SDK Analyzer"
+		end if
+	end if
+
 	-- Get App Store URL from user
 	set urlPrompt to "Enter the App Store URL:" & return & return & ¬
 		"Example:" & return & ¬
 		"https://apps.apple.com/us/app/example/id1234567890"
+
+	if currentEmail is not "" then
+		set urlPrompt to urlPrompt & return & return & "Authenticated as: " & currentEmail
+	end if
 
 	try
 		set appStoreURL to text returned of (display dialog urlPrompt default answer "" buttons {"Cancel", "Analyze"} default button "Analyze" with icon note with title "iOS App Analysis")
@@ -54,18 +130,6 @@ on analyzeIOS()
 		"4. Generating report" & return & return & ¬
 		"⏳ Analysis is running in the background" & return & ¬
 		"✓ Check notifications for progress updates" buttons {"Running..."} default button 1 giving up after 3 with title "SDK Analyzer" with icon note
-
-	-- Get the directory where this app is located
-	-- The app bundle is at: /path/to/SDK Analyzer.app
-	-- We need to get the directory containing the .app bundle
-	set appPath to path to me
-	set appPosixPath to POSIX path of appPath
-	-- Remove trailing slash if present
-	if appPosixPath ends with "/" then
-		set appPosixPath to text 1 thru -2 of appPosixPath
-	end if
-	-- Get parent directory of the .app bundle
-	set scriptDir to do shell script "dirname " & quoted form of appPosixPath
 
 	-- Send periodic notification during analysis
 	display notification "Downloading and extracting app..." with title "SDK Analyzer" subtitle "Please wait..."
