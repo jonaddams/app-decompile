@@ -182,14 +182,15 @@ on analyzeIOS()
 
 		-- Attempt authentication
 		try
-			set authCommand to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " --password " & quoted form of appleIDPassword & " 2>&1"
+			-- First, try to authenticate (this will trigger 2FA if needed)
+			set authCommand to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " --password " & quoted form of appleIDPassword & " --non-interactive 2>&1 || true"
 			set authResult to do shell script authCommand
 
 			-- Check if 2FA is required
-			if authResult contains "enter 2FA code" or authResult contains "two-factor" or authResult contains "verification code" then
+			if authResult contains "enter 2FA code" or authResult contains "failed to read auth code" or authResult contains "two-factor" or authResult contains "verification code" then
 				-- Prompt for 2FA code
 				set twoFAPrompt to "🔐 Two-Factor Authentication" & return & return & ¬
-					"A verification code has been sent to your device." & return & return & ¬
+					"A verification code has been sent to your Apple devices." & return & return & ¬
 					"Enter the 6-digit code:"
 
 				try
@@ -206,8 +207,16 @@ on analyzeIOS()
 				-- Authenticate with 2FA code
 				display dialog "🔄 Verifying 2FA code..." buttons {"Verifying..."} default button 1 giving up after 2 with title "SDK Analyzer" with icon note
 
-				set authCommand2FA to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " --password " & quoted form of appleIDPassword & " --auth-code " & quoted form of twoFACode & " 2>&1"
-				do shell script authCommand2FA
+				set authCommand2FA to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " --password " & quoted form of appleIDPassword & " --auth-code " & quoted form of twoFACode & " --non-interactive 2>&1"
+				set auth2FAResult to do shell script authCommand2FA
+
+				-- Check if 2FA verification succeeded
+				if auth2FAResult contains "ERR" or auth2FAResult contains "error=" then
+					error "2FA verification failed: " & auth2FAResult
+				end if
+			else if authResult contains "ERR" or authResult contains "error=" then
+				-- Authentication failed for another reason
+				error authResult
 			end if
 
 			display notification "Successfully authenticated!" with title "SDK Analyzer"
