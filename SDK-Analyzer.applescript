@@ -322,9 +322,9 @@ on analyzeIOS()
 	-- Send periodic notification during analysis
 	display notification "Downloading and extracting app..." with title "SDK Analyzer" subtitle "Please wait..."
 
-	-- Run the detection script
+	-- Run the detection script (with skip-auth-check since GUI already authenticated)
 	try
-		set analysisCommand to "cd " & quoted form of scriptDir & " && ./detect-sdk-ios.sh -u " & quoted form of appStoreURL & " 2>&1"
+		set analysisCommand to "cd " & quoted form of scriptDir & " && SKIP_AUTH_CHECK=true ./detect-sdk-ios.sh -u " & quoted form of appStoreURL & " 2>&1"
 		set analysisOutput to do shell script analysisCommand
 
 		-- Find the report file from the output

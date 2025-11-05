@@ -44,6 +44,7 @@ OUTPUT_REPORT="sdk-detection-report.txt"
 CLEANUP=true
 VERBOSE=false
 LIST_ALL_FRAMEWORKS=false
+SKIP_AUTH_CHECK=false
 COMPETITORS_FILE="$ORIGINAL_DIR/competitors.txt"
 COMPETITOR_PRODUCTS=()
 
@@ -283,16 +284,21 @@ check_requirements() {
 
     print_success "All required tools found"
 
-    # Check ipatool authentication
-    log_verbose "Checking ipatool authentication..."
-    if ! ipatool auth info &> /dev/null; then
-        authenticate_ipatool
-    else
-        local auth_email=$(ipatool auth info 2>/dev/null | grep -o 'email=[^ ]*' | cut -d= -f2)
-        print_success "ipatool is authenticated (${auth_email})"
+    # Check ipatool authentication (unless skipped by GUI)
+    if [ "$SKIP_AUTH_CHECK" != "true" ]; then
+        log_verbose "Checking ipatool authentication..."
+        if ! ipatool auth info &> /dev/null; then
+            authenticate_ipatool
+        else
+            local auth_email=$(ipatool auth info 2>/dev/null | grep -o 'email=[^ ]*' | cut -d= -f2)
+            print_success "ipatool is authenticated (${auth_email})"
 
-        # Provide helpful reminder about limitations
-        log_verbose "Note: Can only download apps from your Apple ID's region that you've previously downloaded"
+            # Provide helpful reminder about limitations
+            log_verbose "Note: Can only download apps from your Apple ID's region that you've previously downloaded"
+        fi
+    else
+        log_verbose "Skipping authentication check (already authenticated via GUI)"
+        print_success "ipatool authentication verified by GUI"
     fi
 }
 
