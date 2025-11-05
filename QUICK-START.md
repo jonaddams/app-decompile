@@ -6,20 +6,20 @@
 
 **If you see a security warning** saying "SDK Analyzer cannot be opened":
 
-1. Open **Terminal** (Applications → Utilities → Terminal)
-2. Copy and paste this command:
-   ```
-   xattr -cr ~/Downloads/"SDK Analyzer.app"
-   ```
-   (Change `~/Downloads/` if your app is in a different folder)
-3. Press **Enter**
-4. Close Terminal
+**✅ TESTED METHOD (Works Best!):**
 
-**This is safe!** macOS blocks unsigned apps. This one-time command allows it to run.
+1. Try to open SDK Analyzer.app (you'll get the error - that's OK)
+2. Open **System Settings** → **Privacy & Security**
+3. Scroll down to the **"Security"** section
+4. Click **"Open Anyway"** next to "SDK Analyzer was blocked..."
+5. Try opening SDK Analyzer.app again
+6. Click **"Open"** in the confirmation dialog
 
-**Alternative:** Right-click the app → Open → Click "Open" in the dialog
+**Done!** The app will work from now on.
 
-See **SECURITY-WORKAROUND.md** for detailed help.
+**This is safe!** macOS blocks unsigned apps. This is the official Apple method to allow trusted apps.
+
+See **TESTED-FIX-INSTRUCTIONS.md** for detailed step-by-step with visual guide.
 
 ---
 

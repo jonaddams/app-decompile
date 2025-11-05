@@ -26,6 +26,106 @@ on analyzeIOS()
 	end if
 	set scriptDir to do shell script "dirname " & quoted form of appPosixPath
 
+	-- First, check if ipatool is installed
+	set ipatoolInstalled to false
+	try
+		do shell script "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && which ipatool"
+		set ipatoolInstalled to true
+	end try
+
+	if not ipatoolInstalled then
+		set setupMessage to "⚠️  Setup Required" & return & return & ¬
+			"ipatool needs to be installed to download iOS apps." & return & return & ¬
+			"Would you like to:" & return & return & ¬
+			"1. Install automatically (requires Terminal)" & return & ¬
+			"2. See installation instructions"
+
+		display dialog setupMessage buttons {"Cancel", "Show Instructions", "Install Now"} default button "Show Instructions" with icon note with title "Setup Required"
+
+		set setupChoice to button returned of result
+
+		if setupChoice is "Show Instructions" then
+			set instructions to "📋 Installation Instructions" & return & return & ¬
+				"To install ipatool, open Terminal and run:" & return & return & ¬
+				"1. Install Homebrew (if not installed):" & return & ¬
+				"   /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" & return & return & ¬
+				"2. Install ipatool:" & return & ¬
+				"   brew install ipatool" & return & return & ¬
+				"3. Return to SDK Analyzer and try again" & return & return & ¬
+				"These commands will be copied to your clipboard."
+
+			display dialog instructions buttons {"Copy Commands", "OK"} default button "Copy Commands" with icon note with title "Installation Instructions"
+
+			if button returned of result is "Copy Commands" then
+				set the clipboard to "# Install Homebrew (if needed)" & linefeed & "/bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" & linefeed & linefeed & "# Install ipatool" & linefeed & "brew install ipatool"
+				display notification "Commands copied to clipboard! Paste in Terminal." with title "SDK Analyzer"
+			end if
+
+			return
+		else if setupChoice is "Install Now" then
+			set installMessage to "🔧 Installing ipatool..." & return & return & ¬
+				"This will:" & return & ¬
+				"1. Check for Homebrew" & return & ¬
+				"2. Install ipatool" & return & return & ¬
+				"Terminal will open. Please follow the prompts." & return & ¬
+				"Return to SDK Analyzer when installation is complete."
+
+			display dialog installMessage buttons {"Cancel", "Open Terminal"} default button "Open Terminal" with icon note with title "Installation"
+
+			if button returned of result is "Open Terminal" then
+				-- Create installation script
+				set installScript to "#!/bin/bash" & linefeed & ¬
+					"echo '╔════════════════════════════════════════════════╗'" & linefeed & ¬
+					"echo '║  SDK Analyzer - ipatool Installation          ║'" & linefeed & ¬
+					"echo '╚════════════════════════════════════════════════╝'" & linefeed & ¬
+					"echo ''" & linefeed & ¬
+					"echo 'Checking for Homebrew...'" & linefeed & ¬
+					"if ! command -v brew &> /dev/null; then" & linefeed & ¬
+					"    echo ''" & linefeed & ¬
+					"    echo 'Homebrew not found. Installing Homebrew...'" & linefeed & ¬
+					"    /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\"" & linefeed & ¬
+					"    echo ''" & linefeed & ¬
+					"    echo 'Adding Homebrew to PATH...'" & linefeed & ¬
+					"    if [[ $(uname -m) == 'arm64' ]]; then" & linefeed & ¬
+					"        eval \"$(/opt/homebrew/bin/brew shellenv)\"" & linefeed & ¬
+					"    else" & linefeed & ¬
+					"        eval \"$(/usr/local/bin/brew shellenv)\"" & linefeed & ¬
+					"    fi" & linefeed & ¬
+					"else" & linefeed & ¬
+					"    echo '✓ Homebrew is installed'" & linefeed & ¬
+					"fi" & linefeed & ¬
+					"echo ''" & linefeed & ¬
+					"echo 'Installing ipatool...'" & linefeed & ¬
+					"brew install ipatool" & linefeed & ¬
+					"echo ''" & linefeed & ¬
+					"if command -v ipatool &> /dev/null; then" & linefeed & ¬
+					"    echo '✅ ipatool installed successfully!'" & linefeed & ¬
+					"    echo ''" & linefeed & ¬
+					"    echo 'You can now return to SDK Analyzer and try again.'" & linefeed & ¬
+					"else" & linefeed & ¬
+					"    echo '❌ Installation failed. Please install manually.'" & linefeed & ¬
+					"fi" & linefeed & ¬
+					"echo ''" & linefeed & ¬
+					"echo 'Press any key to close...'" & linefeed & ¬
+					"read -n 1 -s"
+
+				-- Write install script to temp file
+				set tempScript to "/tmp/sdk-analyzer-install-ipatool.sh"
+				do shell script "cat > " & quoted form of tempScript & " << 'EOFSCRIPT'" & linefeed & installScript & linefeed & "EOFSCRIPT"
+				do shell script "chmod +x " & quoted form of tempScript
+
+				-- Open Terminal with install script
+				do shell script "open -a Terminal " & quoted form of tempScript
+
+				display notification "Follow the Terminal instructions to install" with title "SDK Analyzer"
+			end if
+
+			return
+		else
+			return -- User cancelled
+		end if
+	end if
+
 	-- Check if ipatool is authenticated
 	set isAuthenticated to false
 	set currentEmail to ""
@@ -34,21 +134,22 @@ on analyzeIOS()
 		set authCheck to do shell script "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth info 2>&1"
 		if authCheck contains "email=" then
 			set isAuthenticated to true
-			-- Extract email from output
+			-- Extract email from output and strip ANSI color codes
 			try
-				set currentEmail to do shell script "echo " & quoted form of authCheck & " | grep -o 'email=[^ ]*' | cut -d= -f2"
+				set currentEmail to do shell script "echo " & quoted form of authCheck & " | grep -o 'email=[^ ]*' | cut -d= -f2 | sed 's/\\x1b\\[[0-9;]*m//g'"
 			end try
 		end if
 	end try
 
 	-- If not authenticated, prompt for Apple ID
 	if not isAuthenticated then
+		-- Prompt for email
 		set authPrompt to "🔐 Apple ID Authentication Required" & return & return & ¬
 			"To download iOS apps, you need to authenticate with your Apple ID." & return & return & ¬
 			"Enter your Apple ID email address:"
 
 		try
-			set appleIDEmail to text returned of (display dialog authPrompt default answer "" buttons {"Cancel", "Authenticate"} default button "Authenticate" with icon note with title "Authentication Required")
+			set appleIDEmail to text returned of (display dialog authPrompt default answer "" buttons {"Cancel", "Next"} default button "Next" with icon note with title "Authentication Required")
 		on error
 			return -- User cancelled
 		end try
@@ -58,16 +159,56 @@ on analyzeIOS()
 			return
 		end if
 
-		-- Show authentication dialog
+		-- Prompt for password
+		set passwordPrompt to "🔐 Apple ID Password" & return & return & ¬
+			"Email: " & appleIDEmail & return & return & ¬
+			"Enter your Apple ID password:"
+
+		try
+			set appleIDPassword to text returned of (display dialog passwordPrompt default answer "" buttons {"Cancel", "Authenticate"} default button "Authenticate" with icon note with title "Authentication Required" with hidden answer)
+		on error
+			return -- User cancelled
+		end try
+
+		if appleIDPassword is "" then
+			display dialog "Password is required to continue." buttons {"OK"} default button "OK" with icon stop with title "Error"
+			return
+		end if
+
+		-- Show authentication progress
 		display dialog "🔄 Authenticating with Apple..." & return & return & ¬
 			"Email: " & appleIDEmail & return & return & ¬
-			"You'll be prompted for your Apple ID password." & return & ¬
 			"This may take a moment..." buttons {"Authenticating..."} default button 1 giving up after 2 with title "SDK Analyzer" with icon note
 
 		-- Attempt authentication
 		try
-			set authCommand to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " 2>&1"
-			do shell script authCommand
+			set authCommand to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " --password " & quoted form of appleIDPassword & " 2>&1"
+			set authResult to do shell script authCommand
+
+			-- Check if 2FA is required
+			if authResult contains "enter 2FA code" or authResult contains "two-factor" or authResult contains "verification code" then
+				-- Prompt for 2FA code
+				set twoFAPrompt to "🔐 Two-Factor Authentication" & return & return & ¬
+					"A verification code has been sent to your device." & return & return & ¬
+					"Enter the 6-digit code:"
+
+				try
+					set twoFACode to text returned of (display dialog twoFAPrompt default answer "" buttons {"Cancel", "Verify"} default button "Verify" with icon note with title "2FA Required")
+				on error
+					return -- User cancelled
+				end try
+
+				if twoFACode is "" then
+					display dialog "2FA code is required to continue." buttons {"OK"} default button "OK" with icon stop with title "Error"
+					return
+				end if
+
+				-- Authenticate with 2FA code
+				display dialog "🔄 Verifying 2FA code..." buttons {"Verifying..."} default button 1 giving up after 2 with title "SDK Analyzer" with icon note
+
+				set authCommand2FA to "cd " & quoted form of scriptDir & " && export PATH=\"/opt/homebrew/bin:/usr/local/bin:$PATH\" && ipatool auth login --email " & quoted form of appleIDEmail & " --password " & quoted form of appleIDPassword & " --auth-code " & quoted form of twoFACode & " 2>&1"
+				do shell script authCommand2FA
+			end if
 
 			display notification "Successfully authenticated!" with title "SDK Analyzer"
 
