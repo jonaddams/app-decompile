@@ -2,7 +2,23 @@
 
 ## For Non-Technical Users
 
-### ⚠️ FIRST TIME ONLY: Security Warning Fix
+### ⚠️ FIRST TIME SETUP (Required!)
+
+**After extracting the ZIP, run this Terminal command FIRST:**
+
+```bash
+xattr -cr ~/Downloads/SDK\ Analyzer.app
+```
+
+(Adjust path if you extracted to a different location)
+
+**Why?** macOS quarantines downloaded apps and moves them to a temp location, breaking the app's ability to find its required scripts.
+
+**Alternative:** After extracting, move the entire folder to Desktop, then try opening the app.
+
+---
+
+### ⚠️ Security Warning Fix (If Needed)
 
 **If you see a security warning** saying "SDK Analyzer cannot be opened":
 
@@ -25,6 +41,8 @@ See **TESTED-FIX-INSTRUCTIONS.md** for detailed step-by-step with visual guide.
 
 ### Step 1: Open the Application
 Double-click **`SDK Analyzer.app`**
+
+**Note:** Make sure all files from the ZIP stay together in the same folder!
 
 ### Step 2: Choose Platform
 A window will appear asking you to choose:

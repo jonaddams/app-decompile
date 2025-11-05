@@ -270,18 +270,36 @@ on analyzeIOS()
 	try
 		do shell script "test -f " & quoted form of scriptDir & "/detect-sdk-ios.sh"
 	on error
-		set missingScriptMsg to "❌ Setup Error" & return & return & ¬
-			"The analysis script is missing." & return & return & ¬
-			"SDK Analyzer.app must be in the same folder as:" & return & ¬
-			"• detect-sdk-ios.sh" & return & ¬
-			"• detect-sdk-android.sh" & return & ¬
-			"• competitors.txt" & return & ¬
-			"• library-info.txt" & return & return & ¬
-			"Please:" & return & ¬
-			"1. Extract the complete SDK-Analyzer-v1.0.zip" & return & ¬
-			"2. Keep all files together in the same folder" & return & ¬
-			"3. Run SDK Analyzer.app from that folder" & return & return & ¬
-			"Current location: " & scriptDir
+		-- Check if we're in App Translocation
+		set isTranslocated to scriptDir contains "/AppTranslocation/"
+
+		if isTranslocated then
+			set missingScriptMsg to "❌ macOS Security Restriction" & return & return & ¬
+				"macOS has moved this app to a secure temporary location." & return & ¬
+				"This prevents it from finding the required scripts." & return & return & ¬
+				"To fix this:" & return & return & ¬
+				"1. Close this app" & return & ¬
+				"2. Open Terminal" & return & ¬
+				"3. Run this command:" & return & return & ¬
+				"   xattr -cr ~/Downloads/SDK\\ Analyzer.app" & return & return & ¬
+				"   (Adjust path if you extracted elsewhere)" & return & return & ¬
+				"4. Open SDK Analyzer.app again" & return & return & ¬
+				"Alternative: Move the entire folder to a different" & return & ¬
+				"location (e.g., Desktop), then try again."
+		else
+			set missingScriptMsg to "❌ Setup Error" & return & return & ¬
+				"The analysis script is missing." & return & return & ¬
+				"SDK Analyzer.app must be in the same folder as:" & return & ¬
+				"• detect-sdk-ios.sh" & return & ¬
+				"• detect-sdk-android.sh" & return & ¬
+				"• competitors.txt" & return & ¬
+				"• library-info.txt" & return & return & ¬
+				"Please:" & return & ¬
+				"1. Extract the complete SDK-Analyzer-v1.0.zip" & return & ¬
+				"2. Keep all files together in the same folder" & return & ¬
+				"3. Run SDK Analyzer.app from that folder" & return & return & ¬
+				"Current location: " & scriptDir
+		end if
 
 		display dialog missingScriptMsg buttons {"OK"} default button "OK" with icon stop with title "Setup Error"
 		return
@@ -434,18 +452,36 @@ on analyzeAndroid()
 	try
 		do shell script "test -f " & quoted form of scriptDir & "/detect-sdk-android.sh"
 	on error
-		set missingScriptMsg to "❌ Setup Error" & return & return & ¬
-			"The analysis script is missing." & return & return & ¬
-			"SDK Analyzer.app must be in the same folder as:" & return & ¬
-			"• detect-sdk-ios.sh" & return & ¬
-			"• detect-sdk-android.sh" & return & ¬
-			"• competitors.txt" & return & ¬
-			"• library-info.txt" & return & return & ¬
-			"Please:" & return & ¬
-			"1. Extract the complete SDK-Analyzer-v1.0.zip" & return & ¬
-			"2. Keep all files together in the same folder" & return & ¬
-			"3. Run SDK Analyzer.app from that folder" & return & return & ¬
-			"Current location: " & scriptDir
+		-- Check if we're in App Translocation
+		set isTranslocated to scriptDir contains "/AppTranslocation/"
+
+		if isTranslocated then
+			set missingScriptMsg to "❌ macOS Security Restriction" & return & return & ¬
+				"macOS has moved this app to a secure temporary location." & return & ¬
+				"This prevents it from finding the required scripts." & return & return & ¬
+				"To fix this:" & return & return & ¬
+				"1. Close this app" & return & ¬
+				"2. Open Terminal" & return & ¬
+				"3. Run this command:" & return & return & ¬
+				"   xattr -cr ~/Downloads/SDK\\ Analyzer.app" & return & return & ¬
+				"   (Adjust path if you extracted elsewhere)" & return & return & ¬
+				"4. Open SDK Analyzer.app again" & return & return & ¬
+				"Alternative: Move the entire folder to a different" & return & ¬
+				"location (e.g., Desktop), then try again."
+		else
+			set missingScriptMsg to "❌ Setup Error" & return & return & ¬
+				"The analysis script is missing." & return & return & ¬
+				"SDK Analyzer.app must be in the same folder as:" & return & ¬
+				"• detect-sdk-ios.sh" & return & ¬
+				"• detect-sdk-android.sh" & return & ¬
+				"• competitors.txt" & return & ¬
+				"• library-info.txt" & return & return & ¬
+				"Please:" & return & ¬
+				"1. Extract the complete SDK-Analyzer-v1.0.zip" & return & ¬
+				"2. Keep all files together in the same folder" & return & ¬
+				"3. Run SDK Analyzer.app from that folder" & return & return & ¬
+				"Current location: " & scriptDir
+		end if
 
 		display dialog missingScriptMsg buttons {"OK"} default button "OK" with icon stop with title "Setup Error"
 		return
