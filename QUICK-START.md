@@ -4,17 +4,17 @@
 
 ### ⚠️ FIRST TIME SETUP (Required!)
 
-**After extracting the ZIP, run this Terminal command FIRST:**
+**After extracting the ZIP, double-click `Remove-Quarantine.command` FIRST!**
 
-```bash
-xattr -cr ~/Downloads/SDK\ Analyzer.app
-```
-
-(Adjust path if you extracted to a different location)
+This helper script automatically removes macOS quarantine from the app - no Terminal needed.
 
 **Why?** macOS quarantines downloaded apps and moves them to a temp location, breaking the app's ability to find its required scripts.
 
-**Alternative:** After extracting, move the entire folder to Desktop, then try opening the app.
+**Alternative (if you prefer Terminal):**
+```bash
+xattr -cr ~/Downloads/SDK\ Analyzer.app
+```
+(Adjust path if you extracted to a different location)
 
 ---
 

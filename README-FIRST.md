@@ -6,7 +6,17 @@
 
 ## ⚠️ IMPORTANT: Setup Required!
 
-**macOS will quarantine this app after download. You MUST run this command before using:**
+**macOS will quarantine this app after download. You MUST remove the quarantine before using.**
+
+### Easiest Method: Double-Click Helper Script
+
+**Simply double-click `Remove-Quarantine.command` in the extracted folder!**
+
+This script automatically removes the quarantine from SDK Analyzer.app - no Terminal commands needed.
+
+### Alternative: Terminal Command
+
+If you prefer, run this in Terminal:
 
 ```bash
 xattr -cr ~/Downloads/SDK\ Analyzer.app
@@ -17,10 +27,7 @@ xattr -cr ~/Downloads/SDK\ Analyzer.app
 - Documents: `xattr -cr ~/Documents/SDK-Analyzer/SDK\ Analyzer.app`
 
 ### Why?
-macOS "translocates" downloaded apps to a temp directory, preventing SDK Analyzer from finding its required scripts. This command removes the quarantine flag.
-
-### Alternative
-After extracting, move the entire folder to a different location (e.g., Desktop), which sometimes clears the quarantine automatically.
+macOS "translocates" downloaded apps to a temp directory, preventing SDK Analyzer from finding its required scripts. Removing the quarantine prevents this.
 
 ---
 
@@ -30,9 +37,9 @@ After extracting, move the entire folder to a different location (e.g., Desktop)
 Extract `SDK-Analyzer-v1.0.zip` and **keep all files together** in the same folder.
 
 ### 2. Remove Quarantine (Critical!)
-```bash
-xattr -cr path/to/SDK\ Analyzer.app
-```
+**Double-click `Remove-Quarantine.command`** in the extracted folder.
+
+(This removes the macOS quarantine automatically)
 
 ### 3. First-Time Security Dialog
 When you first open the app, macOS may block it:
