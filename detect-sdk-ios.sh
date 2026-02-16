@@ -40,6 +40,7 @@ APP_STORE_URL=""
 BUNDLE_ID=""
 APP_ID=""
 SEARCH_TERM=""
+LOCAL_IPA_PATH=""
 OUTPUT_REPORT="sdk-detection-report.txt"
 CLEANUP=true
 VERBOSE=false
@@ -114,6 +115,10 @@ ${BOLD}OPTIONS:${NC}
     -q, --search <term>       Search for app by name
                               Example: "Instagram"
 
+    -l, --local-ipa <path>    Analyze a local IPA file (skips download)
+                              Example: ~/Desktop/MyApp.ipa
+                              Use this with IPAs extracted from Apple Configurator
+
     -o, --output <file>       Output report file (default: auto-generated with app name)
 
     -w, --work-dir <dir>      Working directory for analysis (default: auto-generated)
@@ -136,6 +141,12 @@ ${BOLD}EXAMPLES:${NC}
 
     # List all frameworks with verbose output and keep files
     $0 -a -b com.example.app -v --no-cleanup
+
+    # Analyze a local IPA file (extracted from Apple Configurator)
+    $0 -l ~/Desktop/extracted-ipas/MyApp.ipa
+
+    # Search for specific SDKs in a local IPA
+    $0 -s pspdfkit -s nutrient -l ~/Desktop/MyApp.ipa
 
 ${BOLD}FIRST-TIME SETUP:${NC}
     The script will automatically install and configure everything you need:
@@ -309,12 +320,21 @@ validate_inputs() {
         log_verbose "No specific SDKs specified - will list all frameworks"
     fi
 
-    # Check that at least one app identifier is provided
-    if [ -z "$APP_STORE_URL" ] && [ -z "$BUNDLE_ID" ] && [ -z "$APP_ID" ] && [ -z "$SEARCH_TERM" ]; then
-        print_error "Must provide one of: --url, --bundle, --app-id, or --search"
+    # Check that at least one app identifier or local IPA is provided
+    if [ -z "$LOCAL_IPA_PATH" ] && [ -z "$APP_STORE_URL" ] && [ -z "$BUNDLE_ID" ] && [ -z "$APP_ID" ] && [ -z "$SEARCH_TERM" ]; then
+        print_error "Must provide one of: --local-ipa, --url, --bundle, --app-id, or --search"
         echo ""
         show_usage
         exit 1
+    fi
+
+    # If local IPA provided, validate it exists
+    if [ -n "$LOCAL_IPA_PATH" ]; then
+        if [ ! -f "$LOCAL_IPA_PATH" ]; then
+            print_error "Local IPA file not found: $LOCAL_IPA_PATH"
+            exit 1
+        fi
+        log_verbose "Using local IPA: $LOCAL_IPA_PATH"
     fi
 }
 
@@ -1278,6 +1298,10 @@ main() {
                 SEARCH_TERM="$2"
                 shift 2
                 ;;
+            -l|--local-ipa)
+                LOCAL_IPA_PATH="$2"
+                shift 2
+                ;;
             -o|--output)
                 OUTPUT_REPORT="$2"
                 shift 2
@@ -1318,17 +1342,36 @@ main() {
     # Validate inputs
     validate_inputs
 
-    # Check requirements
-    check_requirements
+    # Check requirements (skip if using local IPA and not downloading)
+    if [ -z "$LOCAL_IPA_PATH" ]; then
+        check_requirements
+    fi
 
-    # Get app identifier
-    get_app_identifier
+    # Handle local IPA or download from App Store
+    if [ -n "$LOCAL_IPA_PATH" ]; then
+        print_header "Using Local IPA"
+        print_info "IPA file: $LOCAL_IPA_PATH"
 
-    # Download app
-    download_app
+        # Create work directory and copy IPA
+        mkdir -p "$WORK_DIR"
+        cd "$WORK_DIR"
+        cp "$LOCAL_IPA_PATH" app.ipa
 
-    # Extract app
-    extract_app
+        local ipa_size=$(du -h app.ipa | cut -f1)
+        print_success "Copied local IPA ($ipa_size)"
+
+        # Extract app
+        extract_app
+    else
+        # Get app identifier
+        get_app_identifier
+
+        # Download app
+        download_app
+
+        # Extract app
+        extract_app
+    fi
 
     # Get app info
     get_app_info
