@@ -34,6 +34,7 @@ BOLD='\033[1m'
 
 # Configuration
 ORIGINAL_DIR="${PWD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${PWD}/sdk-analysis-$(date +%Y%m%d-%H%M%S)"
 SDK_NAMES=()
 APP_STORE_URL=""
@@ -46,7 +47,7 @@ CLEANUP=true
 VERBOSE=false
 LIST_ALL_FRAMEWORKS=false
 SKIP_AUTH_CHECK=false
-COMPETITORS_FILE="$ORIGINAL_DIR/competitors.txt"
+COMPETITORS_FILE="$SCRIPT_DIR/../competitors.txt"
 COMPETITOR_PRODUCTS=()
 
 ################################################################################
@@ -553,7 +554,7 @@ get_app_info() {
 LIBRARY_INFO_FILE=""
 
 load_library_info() {
-    LIBRARY_INFO_FILE="$ORIGINAL_DIR/library-info.txt"
+    LIBRARY_INFO_FILE="$SCRIPT_DIR/../library-info.txt"
 
     if [ ! -f "$LIBRARY_INFO_FILE" ]; then
         log_verbose "Library info file not found: $LIBRARY_INFO_FILE"
