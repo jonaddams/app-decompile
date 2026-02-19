@@ -6,3 +6,9 @@
 /framework-analysis*
 *.apk
 *.xapk
+# Generated analysis reports
+sdk-detection-*.txt
+framework-analysis-*.txt
+android-sdk-detection-*.txt
+library-analysis-*.txt
+sdk-analysis-*/
