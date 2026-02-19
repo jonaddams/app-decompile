@@ -34,6 +34,7 @@ BOLD='\033[1m'
 
 # Configuration
 ORIGINAL_DIR="${PWD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="${PWD}/sdk-analysis-android-$(date +%Y%m%d-%H%M%S)"
 SDK_NAMES=()
 PLAY_STORE_URL=""
@@ -43,7 +44,7 @@ OUTPUT_REPORT="sdk-detection-report.txt"
 CLEANUP=true
 VERBOSE=false
 LIST_ALL_LIBRARIES=false
-COMPETITORS_FILE="$ORIGINAL_DIR/competitors.txt"
+COMPETITORS_FILE="$SCRIPT_DIR/../competitors.txt"
 COMPETITOR_PRODUCTS=()
 
 ################################################################################
@@ -355,7 +356,7 @@ download_apk_device() {
 }
 
 load_library_info() {
-    LIBRARY_INFO_FILE="$ORIGINAL_DIR/library-info.txt"
+    LIBRARY_INFO_FILE="$SCRIPT_DIR/../library-info.txt"
 
     if [ ! -f "$LIBRARY_INFO_FILE" ]; then
         log_verbose "Library info database not found: $LIBRARY_INFO_FILE"
