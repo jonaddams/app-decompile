@@ -26,18 +26,38 @@ This tool helps you verify whether former customers have removed your SDK from t
 
 ### iOS Apps
 
+> ⚠️ **Note:** ipatool authentication is currently broken (Apple API change, Jan 2026). Use the Apple Configurator 2 method below instead. See [issue #437](https://github.com/majd/ipatool/issues/437).
+
+**Required: Install Apple Configurator 2 and fswatch**
 ```bash
-# Make script executable (first time only)
-chmod +x detect-sdk.sh
+# Install fswatch (required — polling fallback does not work reliably)
+brew install fswatch
 
-# Analyze by App Store URL
-./detect-sdk.sh -s pspdfkit -s nutrient -u "https://apps.apple.com/us/app/app-name/id1234567890"
-
-# Or by bundle ID
-./detect-sdk.sh -s pspdfkit -b com.example.app
+# Install Apple Configurator 2 from the Mac App Store
+open "macappstore://apps.apple.com/us/app/apple-configurator/id1037126344"
 ```
 
-**First time?** The script automatically installs Homebrew, ipatool, and handles Apple ID authentication!
+**Step 1: Start the IPA watcher** (leave this running in a terminal)
+```bash
+./watch-and-extract-ipa.sh
+```
+
+**Step 2: Download the app via Apple Configurator 2**
+1. Connect your iPhone via USB and open Apple Configurator 2
+2. Click your device → **Actions → Add → Apps...**
+3. Search for and select the app → click **Add**
+4. The watcher automatically copies the IPA to `~/Desktop/extracted-ipas/`
+
+**Step 3: Analyze**
+```bash
+# List all frameworks
+./detect-sdk-ios.sh --local-ipa ~/Desktop/extracted-ipas/YourApp.ipa
+
+# Search for specific SDKs
+./detect-sdk-ios.sh -s pspdfkit -s nutrient --local-ipa ~/Desktop/extracted-ipas/YourApp.ipa
+```
+
+See [QUICK-START-APPLE-CONFIGURATOR.md](QUICK-START-APPLE-CONFIGURATOR.md) for the full guide.
 
 ### Android Apps
 
@@ -72,17 +92,17 @@ Reports are automatically generated with unique names:
 
 | Feature | iOS | Android |
 |---------|-----|---------|
-| **Download Source** | App Store (requires Apple ID) | APK/XAPK from multiple sources |
-| **Auto-Download** | ✅ Yes (via ipatool) | ⚠️ Partial (APKPure) |
-| **Manual Download** | ❌ Difficult | ✅ Easy (APKPure, APKMirror) |
+| **Download Source** | Apple Configurator 2 (iPhone required) | APK/XAPK from multiple sources |
+| **Auto-Download** | ❌ ipatool broken (Jan 2026) | ⚠️ Partial (APKPure) |
+| **Manual Download** | ✅ Via Apple Configurator 2 | ✅ Easy (APKPure, APKMirror) |
 | **XAPK Support** | N/A | ✅ Automatic extraction & merging |
-| **Device Extract** | ❌ Not supported | ✅ Yes (via ADB) |
+| **Device Extract** | ✅ Via Apple Configurator 2 | ✅ Yes (via ADB) |
 | **SDK Detection** | Framework bundles | Native libs + Java classes |
 | **Obfuscation** | Rare | Common (ProGuard/R8) |
 | **Accuracy** | 95%+ | 90%+ (95%+ for native libs) |
 
 **Recommendation**:
-- **iOS**: Use App Store URL (easiest)
+- **iOS**: Use Apple Configurator 2 + `watch-and-extract-ipa.sh` (ipatool currently broken)
 - **Android**: Download XAPK from APKPure - automatic extraction! (most reliable)
 
 ## 💡 Smart URL Handling
@@ -264,10 +284,12 @@ Each report includes:
 ## 🐛 Troubleshooting
 
 ### ipatool authentication issues
+ipatool authentication is broken as of January 2026 due to Apple API changes. Use Apple Configurator 2 instead:
 ```bash
-ipatool auth revoke
-ipatool auth login --email your@email.com
+brew install fswatch
+./watch-and-extract-ipa.sh
 ```
+See [QUICK-START-APPLE-CONFIGURATOR.md](QUICK-START-APPLE-CONFIGURATOR.md) for full instructions. Track the ipatool fix at [github.com/majd/ipatool/issues/437](https://github.com/majd/ipatool/issues/437).
 
 ### App not found
 ```bash
@@ -326,9 +348,12 @@ done
 ## 🔄 Updates
 
 **Version**: 1.0
-**Last Updated**: 2025-10-15
+**Last Updated**: 2026-02-18
 
 ### Recent Changes
+- ✅ **Apple Configurator 2 workflow** for iOS (ipatool workaround)
+- ✅ **`watch-and-extract-ipa.sh`** — real-time IPA watcher (requires fswatch)
+- ✅ **`--local-ipa` flag** for `detect-sdk-ios.sh` — analyze pre-extracted IPAs
 - ✅ **XAPK automatic extraction and merging** (Android)
 - ✅ Automatic report naming with bundle ID and timestamp
 - ✅ Multiple SDK detection support
