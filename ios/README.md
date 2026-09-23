@@ -8,7 +8,7 @@ This tool detects third-party SDKs (such as PSPDFKit/Nutrient document SDKs) ins
 
 `ipatool` downloads the IPA directly from the App Store. This is the fast, reliable path — no Apple Configurator, no cache-watching.
 
-> The old warning that `ipatool` downloads were "broken since January 2026 (#437)" was a **stale/auth-state issue, not a real breakage**. Once `ipatool` is authenticated, downloads work. Verified 2026-07-10 on macOS/Apple Silicon with ipatool 2.3.1.
+> The old warning that `ipatool` downloads were "broken since January 2026 (#437)" was a **stale/auth-state issue, not a real breakage**. Once `ipatool` is authenticated, downloads work. Verified 2026-07-10 with ipatool 2.3.1, and again 2026-09-23 with ipatool 2.6.0.
 
 ### Setup (one-time)
 
@@ -42,6 +42,15 @@ ipatool auth info   # success=true means you're ready to download
 ```
 
 If a download 401s or auth looks stale, run `ipatool auth login` again to mint a fresh token.
+
+**`HTTP 403: empty or non-plist body` on download, purchase, *and* login:** your ipatool is too old. Apple changed its auth endpoints in August 2026, which breaks ipatool < 2.4 (upstream majd/ipatool#522, #523). `auth info` can still report `success=true`. Fix:
+
+```bash
+brew upgrade ipatool
+ipatool auth login -e <your-apple-id-email>   # run in Terminal.app, not via Claude's `!` prompt
+```
+
+After an upgrade, macOS may show a Keychain prompt so the new binary can read the saved session. Until you answer it, ipatool commands hang with no output. Click **Always Allow**.
 
 ## Detection options
 
